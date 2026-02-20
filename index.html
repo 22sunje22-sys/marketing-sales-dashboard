@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Platinumlist — Paid Marketing Intelligence v2.6</title>
+<title>Platinumlist — Paid Marketing Intelligence v2.7</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -263,6 +263,49 @@ tr:hover td { background:var(--surface2); }
 .log-table { width:100%; font-size:12px; }
 .log-table th { padding:8px; text-align:left; color:var(--text2); border-bottom:1px solid var(--border); }
 .log-table td { padding:6px 8px; border-bottom:1px solid var(--border); }
+
+/* v2.7 — SCROLL SHADOW INDICATOR */
+.tbl-wrap { position:relative; }
+.tbl-wrap::after { content:''; position:absolute; top:0; right:0; bottom:0; width:24px; background:linear-gradient(to left,var(--bg) 0%,transparent 100%); pointer-events:none; opacity:0; transition:opacity 0.3s; }
+.tbl-wrap.has-scroll::after { opacity:1; }
+
+/* v2.7 — MICRO-INTERACTIONS */
+.act-btn.loading { pointer-events:none; opacity:0.7; }
+.act-btn.loading::after { content:''; display:inline-block; width:10px; height:10px; border:2px solid var(--pl-monday); border-top-color:transparent; border-radius:50%; animation:btnSpin 0.6s linear infinite; margin-left:4px; vertical-align:middle; }
+@keyframes btnSpin { to{transform:rotate(360deg)} }
+.act-btn.done { background:var(--green); color:var(--pl-storm); border-color:var(--green); pointer-events:none; }
+@keyframes btnPop { 0%{transform:scale(1)} 50%{transform:scale(1.15)} 100%{transform:scale(1)} }
+.act-btn.done { animation:btnPop 0.4s ease; }
+
+/* v2.7 — BULK SELECT */
+.bulk-cb { width:16px; height:16px; accent-color:var(--pl-monday); cursor:pointer; flex-shrink:0; margin-right:4px; }
+.card.selected { border-color:var(--pl-monday); box-shadow:0 0 0 1px var(--pl-monday); }
+.floating-bar { position:fixed; bottom:24px; left:50%; transform:translateX(-50%); background:var(--surface); border:1px solid var(--pl-monday); border-radius:14px; padding:12px 24px; display:flex; align-items:center; gap:16px; z-index:150; box-shadow:0 8px 32px rgba(0,0,0,0.5); backdrop-filter:blur(12px); animation:barSlide 0.3s ease; }
+@keyframes barSlide { from{transform:translateX(-50%) translateY(40px);opacity:0} to{transform:translateX(-50%) translateY(0);opacity:1} }
+.floating-bar .fb-count { font-size:14px; font-weight:700; color:var(--pl-monday); }
+.floating-bar .fb-btn { padding:6px 16px; border-radius:8px; border:1px solid var(--border); background:var(--surface2); color:var(--text); font-size:12px; font-weight:600; cursor:pointer; transition:all 0.2s; }
+.floating-bar .fb-btn:hover { background:var(--pl-suede); color:#fff; border-color:var(--pl-suede); }
+.floating-bar .fb-close { background:none; border:none; color:var(--text3); font-size:18px; cursor:pointer; padding:0 4px; }
+
+/* v2.7 — ACTIVITY FEED ON OVERVIEW */
+.activity-feed { background:var(--surface); border-radius:var(--radius); padding:16px; margin-bottom:20px; border:1px solid var(--border); }
+.activity-feed h3 { font-size:15px; margin-bottom:12px; display:flex; align-items:center; gap:8px; }
+.af-item { display:flex; align-items:center; gap:10px; padding:8px 0; border-bottom:1px solid var(--border); font-size:12px; }
+.af-item:last-child { border:none; }
+.af-icon { font-size:16px; flex-shrink:0; }
+.af-user { color:var(--pl-monday); font-weight:600; }
+.af-time { color:var(--text3); margin-left:auto; flex-shrink:0; white-space:nowrap; }
+
+/* v2.7 — KPI SPARKLINE */
+.kpi-spark { display:flex; align-items:flex-end; gap:2px; height:24px; margin-top:4px; }
+.kpi-spark-bar { width:6px; border-radius:2px 2px 0 0; background:var(--pl-monday); opacity:0.6; transition:opacity 0.2s; }
+.kpi:hover .kpi-spark-bar { opacity:1; }
+
+/* v2.7 — SAVED VIEWS */
+.saved-views { display:flex; gap:6px; margin-bottom:10px; flex-wrap:wrap; }
+.sv-btn { padding:5px 12px; border-radius:16px; font-size:11px; border:1px dashed var(--border); background:transparent; color:var(--text2); cursor:pointer; transition:all 0.2s; }
+.sv-btn:hover { border-color:var(--pl-monday); color:var(--pl-monday); }
+.sv-btn.sv-save { border-style:dashed; }
 </style>
 </head>
 <body>
@@ -272,7 +315,7 @@ tr:hover td { background:var(--surface2); }
 <div class="login-box">
 <div style="margin-bottom:16px;font-size:28px;font-weight:800;letter-spacing:-0.5px;color:var(--pl-monday);">Platinumlist</div>
 <h1 style="font-size:18px;font-weight:600;">Paid Marketing Intelligence</h1>
-<p>v2.6 — for Organisers</p>
+<p>v2.7 — for Organisers</p>
 <select id="userSel">
 <option value="">Select user...</option>
 <option value="alex">Alex (All regions)</option>
@@ -404,6 +447,7 @@ async function doLogin(){
   document.getElementById('app').style.display='block';
   document.getElementById('userBadge').textContent=curUser.name+(curUser.filter?(' • '+(curUser.mode==='only'?curUser.filter:'Non-'+curUser.filter)):'');
   logVisit();logAction('login','logged in','');loadAchievements();
+  restoreFilters();
   switchTab('overview');
 }
 function doLogout(){
@@ -508,8 +552,8 @@ function renderOverview(){
   p.innerHTML=`
   ${territoryHtml}
   <div class="kpi-row">
-    <div class="kpi"><div class="kpi-label">Total Ticketing Revenue</div><div class="kpi-val">${fmtCur(totalTick)}</div><div class="kpi-sub">${ORGS.length} organisers</div></div>
-    <div class="kpi"><div class="kpi-label">Total Mkt Revenue</div><div class="kpi-val">${fmtCur(totalMkt)}</div><div class="kpi-sub">${avgShare.toFixed(1)}% avg share</div></div>
+    <div class="kpi"><div class="kpi-label">Total Ticketing Revenue</div><div class="kpi-val">${fmtCur(totalTick)}</div><div class="kpi-sub">${ORGS.length} organisers</div>${makeSparkline([ORGS.reduce((s,o)=>s+(o.t23||0),0),ORGS.reduce((s,o)=>s+(o.t24||0),0),ORGS.reduce((s,o)=>s+(o.t25||0),0),ORGS.reduce((s,o)=>s+(o.t26||0),0)])}</div>
+    <div class="kpi"><div class="kpi-label">Total Mkt Revenue</div><div class="kpi-val">${fmtCur(totalMkt)}</div><div class="kpi-sub">${avgShare.toFixed(1)}% avg share</div>${makeSparkline([ORGS.reduce((s,o)=>s+(o.m23||0),0),ORGS.reduce((s,o)=>s+(o.m24||0),0),ORGS.reduce((s,o)=>s+(o.m25||0),0),ORGS.reduce((s,o)=>s+(o.m26||0),0)])}</div>
     <div class="kpi"><div class="kpi-label">Mkt Revenue Potential</div><div class="kpi-val" style="color:var(--green)">${fmtCur(totalRP)}</div><div class="kpi-sub">Mkt uplift if at benchmark</div></div>
     <div class="kpi kpi-click" onclick="drillDown('hot')" title="View Hot prospects"><div class="kpi-label">🔥 Hot Prospects</div><div class="kpi-val" style="color:var(--red)">${hotCount}</div><div class="kpi-sub">${warmCount} warm leads</div></div>
     <div class="kpi kpi-click" onclick="drillDown('risk')" title="View At Risk orgs"><div class="kpi-label">⚠️ At Risk</div><div class="kpi-val" style="color:var(--amber)">${atRisk}</div><div class="kpi-sub">Need attention</div></div>
@@ -527,6 +571,7 @@ function renderOverview(){
       }).join('')}
     </div>
   </div>
+  <div class="activity-feed" id="overviewFeed"><h3>📋 Recent Team Activity</h3><div class="af-list" id="afList"><div style="color:var(--text3);font-size:12px;padding:8px 0">Loading activity...</div></div></div>
   <div class="chart-grid">
     <div class="chart-box"><h3>Revenue Trend (Ticketing vs Marketing)</h3><canvas id="chRevTrend"></canvas></div>
     <div class="chart-box"><h3>Sales Readiness Distribution</h3><canvas id="chReadiness"></canvas></div>
@@ -578,6 +623,27 @@ function renderOverview(){
   document.getElementById('segDeclines').innerHTML=declines.map(o=>`<div class="seg-row seg-click" onclick="drillDown('all','${o.organizer.replace(/'/g,"\\'")}')" title="View in Opportunities"><span>${o.organizer.substring(0,35)}</span><span style="color:var(--red)">${fmtPct(o.tyoy25)}</span></div>`).join('');
   const growers=[...ORGS].filter(o=>o.myoy25>0).sort((a,b)=>b.myoy25-a.myoy25).slice(0,5);
   document.getElementById('segGrowing').innerHTML=growers.map(o=>`<div class="seg-row seg-click" onclick="drillDown('all','${o.organizer.replace(/'/g,"\\'")}')" title="View in Opportunities"><span>${o.organizer.substring(0,35)}</span><span style="color:var(--green)">${fmtPct(o.myoy25)}</span></div>`).join('');
+
+  // Activity feed
+  loadOverviewFeed();
+}
+async function loadOverviewFeed(){
+  const el=document.getElementById('afList');
+  if(!el)return;
+  const recent=ORG_ACTIONS.slice(0,12);
+  if(recent.length===0){el.innerHTML='<div style="color:var(--text3);font-size:12px;padding:8px 0">No team activity yet. Start by clicking "Worked on it" on an organiser card.</div>';return;}
+  const actIcons={worked_on:'✅',note:'📝',call:'📞',email:'📧',meeting:'🤝'};
+  el.innerHTML=recent.map(a=>{
+    const icon=actIcons[a.action]||'⚡';
+    const timeAgo=a.created_at?getTimeAgo(a.created_at):'';
+    return`<div class="af-item"><span class="af-icon">${icon}</span><span><span class="af-user">${a.user_name||'Team'}</span> ${a.action==='note'?'noted on':'worked on'} <b>${a.org}</b>${a.note?' — <i style="color:var(--text2)">'+a.note+'</i>':''}</span><span class="af-time">${timeAgo}</span></div>`;
+  }).join('');
+}
+function getTimeAgo(dateStr){
+  const d=new Date(dateStr);const now=new Date();const diff=Math.floor((now-d)/1000);
+  if(diff<60)return'just now';if(diff<3600)return Math.floor(diff/60)+'m ago';
+  if(diff<86400)return Math.floor(diff/3600)+'h ago';if(diff<604800)return Math.floor(diff/86400)+'d ago';
+  return d.toLocaleDateString();
 }
 
 /* ===== PIPELINE TAB ===== */
@@ -705,9 +771,11 @@ function renderOppCards(){
 
   let html='<div class="cards">';
   page.forEach(o=>{
-    html+=`<div class="card" style="cursor:pointer" onclick="showOrgEvents('${o.organizer.replace(/'/g,"\\'")}')">
+    const borderClr=o.sr==='hot'?'var(--red)':o.sr==='warm'?'var(--amber)':o.gt==='accelerating'?'var(--green)':o.gt==='decelerating'?'var(--red)':o.rs>60?'var(--purple)':'var(--border)';
+    const isSelected=bulkSelected.has(o.organizer);
+    html+=`<div class="card${isSelected?' selected':''}" style="cursor:pointer;border-left:4px solid ${borderClr}" onclick="showOrgEvents('${o.organizer.replace(/'/g,"\\'")}')">
       <div class="card-head">
-        <div class="card-name">${o.organizer}</div>
+        <div style="display:flex;align-items:center;gap:6px;max-width:70%"><input type="checkbox" class="bulk-cb" ${isSelected?'checked':''} onclick="event.stopPropagation();toggleBulk('${o.organizer.replace(/'/g,"\\'")}')" title="Select for bulk action"><div class="card-name">${o.organizer}</div></div>
         <div class="card-badges">
           <span class="badge ${srCls[o.sr]||''}">${o.sr.toUpperCase()}</span>
           <span class="badge ${gtCls[o.gt]||''}">${gtLabel[o.gt]||o.gt}</span>
@@ -731,7 +799,7 @@ function renderOppCards(){
       <div class="card-action" style="border-left:3px solid ${actionColor(o.nba)}">
         <span class="action-text" style="color:${actionColor(o.nba)}">${o.nba}</span>
         <div class="card-act-btns">
-          ${ORG_ACTIONS_SET.has(o.organizer)?`<span class="act-done">✅</span>`:`<button class="act-btn" onclick="event.stopPropagation();logOrgAction('${o.organizer.replace(/'/g,"\\'")}','worked_on')">Worked on it</button>`}
+          ${ORG_ACTIONS_SET.has(o.organizer)?`<span class="act-done">✅</span>`:`<button class="act-btn" onclick="event.stopPropagation();actBtnClick(this,'${o.organizer.replace(/'/g,"\\'")}')">Worked on it</button>`}
           <button class="act-btn act-btn-sm" onclick="event.stopPropagation();const n=prompt('Add note for ${o.organizer.replace(/'/g,"\\'")}:');if(n)logOrgAction('${o.organizer.replace(/'/g,"\\'")}','note',n)">📝</button>
         </div>
       </div>
@@ -1264,6 +1332,100 @@ function exportEvtCSV(){
   const csv=header+'\n'+rows.join('\n');
   const blob=new Blob([csv],{type:'text/csv'});
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='events_export.csv';a.click();
+}
+
+/* ===== v2.7 BULK SELECT ===== */
+let bulkSelected=new Set();
+function toggleBulk(org){
+  if(bulkSelected.has(org))bulkSelected.delete(org);else bulkSelected.add(org);
+  renderOppCards();
+  renderFloatingBar();
+}
+function clearBulk(){bulkSelected.clear();renderOppCards();renderFloatingBar();}
+function renderFloatingBar(){
+  let bar=document.getElementById('floatingBar');
+  if(bulkSelected.size===0){if(bar)bar.remove();return;}
+  if(!bar){bar=document.createElement('div');bar.className='floating-bar';bar.id='floatingBar';document.body.appendChild(bar);}
+  bar.innerHTML=`<span class="fb-count">${bulkSelected.size} selected</span>
+    <button class="fb-btn" onclick="bulkWorkOn()">✅ Worked on all</button>
+    <button class="fb-btn" onclick="bulkExport()">📥 Export selected</button>
+    <button class="fb-close" onclick="clearBulk()">✕</button>`;
+}
+async function bulkWorkOn(){
+  const orgs=[...bulkSelected];
+  for(const org of orgs){await logOrgAction(org,'worked_on');}
+  clearBulk();
+}
+function bulkExport(){
+  const list=ORGS.filter(o=>bulkSelected.has(o.organizer));
+  const cols=['organizer','country','tier','stage','type','ps','rp','rs','sr','gt','lc','nba','tt','tm','ts'];
+  let csv=cols.join(',')+'\n';
+  list.forEach(o=>{csv+=cols.map(c=>{const v=o[c];return typeof v==='string'?'"'+v.replace(/"/g,'""')+'"':v??''}).join(',')+'\n';});
+  const blob=new Blob([csv],{type:'text/csv'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='selected_orgs.csv';a.click();
+  clearBulk();
+}
+
+/* ===== v2.7 MICRO-INTERACTION ===== */
+async function actBtnClick(btn,org){
+  btn.classList.add('loading');
+  btn.textContent='';
+  await logOrgAction(org,'worked_on');
+  btn.classList.remove('loading');
+  btn.classList.add('done');
+  btn.textContent='✅ Done';
+  setTimeout(()=>{renderOppCards();},1200);
+}
+
+/* ===== v2.7 FILTER PERSISTENCE ===== */
+function saveFiltersToURL(){
+  const params=new URLSearchParams();
+  if(oppView!=='all')params.set('view',oppView);
+  if(oppFilters.country)params.set('country',oppFilters.country);
+  if(oppFilters.tier)params.set('tier',oppFilters.tier);
+  if(oppFilters.stage)params.set('stage',oppFilters.stage);
+  if(oppFilters.type)params.set('type',oppFilters.type);
+  if(oppFilters.search)params.set('q',oppFilters.search);
+  if(oppFilters.tag)params.set('tag',oppFilters.tag);
+  const qs=params.toString();
+  history.replaceState(null,'',qs?'?'+qs:location.pathname);
+  try{localStorage.setItem('plDashFilters',JSON.stringify({view:oppView,filters:oppFilters}));}catch(e){}
+}
+function restoreFilters(){
+  const params=new URLSearchParams(location.search);
+  if(params.has('view'))oppView=params.get('view');
+  if(params.has('country'))oppFilters.country=params.get('country');
+  if(params.has('tier'))oppFilters.tier=params.get('tier');
+  if(params.has('stage'))oppFilters.stage=params.get('stage');
+  if(params.has('type'))oppFilters.type=params.get('type');
+  if(params.has('q'))oppFilters.search=params.get('q');
+  if(params.has('tag'))oppFilters.tag=params.get('tag');
+  if(oppView==='all'&&!oppFilters.country){
+    try{const saved=JSON.parse(localStorage.getItem('plDashFilters'));if(saved){oppView=saved.view||'all';Object.assign(oppFilters,saved.filters||{});}}catch(e){}
+  }
+}
+// Hook into renderOppCards to persist
+const _origRenderOppCards=renderOppCards;
+renderOppCards=function(){_origRenderOppCards();saveFiltersToURL();};
+
+/* ===== v2.7 SCROLL INDICATOR ===== */
+function initScrollIndicators(){
+  document.querySelectorAll('.tbl-wrap').forEach(w=>{
+    const check=()=>{w.classList.toggle('has-scroll',w.scrollWidth>w.clientWidth+5&&w.scrollLeft<w.scrollWidth-w.clientWidth-5);};
+    w.addEventListener('scroll',check);
+    setTimeout(check,100);
+    new ResizeObserver(check).observe(w);
+  });
+}
+// Re-init after tab renders
+const _origSwitchTab=switchTab;
+switchTab=function(t){_origSwitchTab(t);setTimeout(initScrollIndicators,200);};
+
+/* ===== v2.7 KPI SPARKLINES ===== */
+function makeSparkline(values){
+  if(!values||values.length===0)return'';
+  const max=Math.max(...values,1);
+  return`<div class="kpi-spark">${values.map(v=>`<div class="kpi-spark-bar" style="height:${Math.max(2,Math.round(v/max*22))}px"></div>`).join('')}</div>`;
 }
 </script>
 </body>
