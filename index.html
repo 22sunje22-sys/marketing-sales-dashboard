@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Platinumlist — Paid Marketing Intelligence v2.9</title>
+<title>Platinumlist — Paid Marketing Intelligence v3.0</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -314,6 +314,36 @@ tr:hover td { background:var(--surface2); }
 .note-modal .nm-save:hover { background:var(--pl-monday); color:var(--pl-storm); }
 .note-modal .nm-cancel { background:transparent; color:var(--text2); }
 
+/* v3.0 TASK MODAL */
+.task-modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:1000; display:flex; align-items:center; justify-content:center; padding:20px; backdrop-filter:blur(4px); }
+.task-modal { background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:24px; width:100%; max-width:460px; }
+.task-modal h3 { font-size:16px; margin-bottom:4px; }
+.task-modal .tm-org { color:var(--pl-monday); font-size:13px; margin-bottom:16px; }
+.task-modal label { display:block; font-size:12px; color:var(--text2); margin-bottom:4px; margin-top:12px; }
+.task-modal select, .task-modal input, .task-modal textarea { width:100%; padding:10px 12px; border-radius:8px; border:1px solid var(--border); background:var(--surface2); color:var(--text); font-size:14px; font-family:inherit; outline:none; }
+.task-modal textarea { min-height:80px; resize:vertical; }
+.task-modal select:focus, .task-modal input:focus, .task-modal textarea:focus { border-color:var(--pl-monday); }
+.task-modal .tm-btns { display:flex; justify-content:flex-end; gap:8px; margin-top:16px; }
+.task-modal .tm-btn { padding:8px 20px; border-radius:8px; font-size:13px; font-weight:600; cursor:pointer; border:1px solid var(--border); }
+.task-modal .tm-save { background:var(--pl-suede); color:#fff; border-color:var(--pl-suede); }
+.task-modal .tm-save:hover { background:var(--pl-monday); color:var(--pl-storm); }
+.task-modal .tm-cancel { background:transparent; color:var(--text2); }
+.task-modal .tm-err { color:var(--red); font-size:12px; margin-top:8px; display:none; }
+
+/* v3.0 TEAM PANEL */
+.team-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:16px; }
+.team-card { background:var(--surface); border-radius:var(--radius); padding:20px; border:1px solid var(--border); }
+.team-card h4 { font-size:15px; font-weight:600; margin-bottom:12px; display:flex; align-items:center; gap:8px; }
+.team-stat { display:flex; justify-content:space-between; font-size:13px; padding:6px 0; border-bottom:1px solid var(--border); }
+.team-stat:last-child { border-bottom:none; }
+.team-stat-label { color:var(--text2); }
+.team-stat-val { font-weight:500; }
+.team-online { width:8px; height:8px; border-radius:50%; display:inline-block; }
+.team-online.active { background:var(--green); }
+.team-online.inactive { background:var(--text3); }
+.act-btn-task { background:none; border:1px solid var(--border); color:var(--accent); font-size:11px; padding:3px 8px; border-radius:6px; cursor:pointer; white-space:nowrap; }
+.act-btn-task:hover { background:var(--blue-bg); border-color:var(--accent); }
+
 /* v2.7 — SAVED VIEWS */
 .saved-views { display:flex; gap:6px; margin-bottom:10px; flex-wrap:wrap; }
 .sv-btn { padding:5px 12px; border-radius:16px; font-size:11px; border:1px dashed var(--border); background:transparent; color:var(--text2); cursor:pointer; transition:all 0.2s; }
@@ -328,7 +358,7 @@ tr:hover td { background:var(--surface2); }
 <div class="login-box">
 <div style="margin-bottom:16px;font-size:28px;font-weight:800;letter-spacing:-0.5px;color:var(--pl-monday);">Platinumlist</div>
 <h1 style="font-size:18px;font-weight:600;">Paid Marketing Intelligence</h1>
-<p>v2.9 — for Organisers</p>
+<p>v3.0 — for Organisers</p>
 <select id="userSel">
 <option value="">Select user...</option>
 <option value="alex">Alex (All regions)</option>
@@ -360,6 +390,7 @@ tr:hover td { background:var(--surface2); }
 <div class="tab" data-tab="organisers">📊 Organisers</div>
 <div class="tab" data-tab="events">🎫 Events</div>
 <div class="tab" data-tab="raw">Raw Data</div>
+<div class="tab" data-tab="team">👥 Team</div>
 <div class="tab" data-tab="activity">📋 Activity</div>
 </div>
 <div class="content">
@@ -370,6 +401,7 @@ tr:hover td { background:var(--surface2); }
 <div class="tab-pane" id="pane-organisers"></div>
 <div class="tab-pane" id="pane-events"></div>
 <div class="tab-pane" id="pane-raw"></div>
+<div class="tab-pane" id="pane-team"></div>
 <div class="tab-pane" id="pane-activity"></div>
 </div>
 </div>
@@ -485,11 +517,15 @@ function doLogout(){
 }
 
 function initData(){
+  /* v3.0 — exclude orgs/events with 'test' in name by default */
+  const testRe=/test/i;
   ORGS=RAW_ORGS.filter(o=>{
+    if(testRe.test(o.organizer))return false;
     if(!curUser.filter)return true;
     return curUser.mode==='only'?o.country===curUser.filter:o.country!==curUser.filter;
   });
   EVENTS=RAW_EVENTS.filter(e=>{
+    if(testRe.test(e.org)||testRe.test(e.name))return false;
     if(!curUser.filter)return true;
     return curUser.mode==='only'?e.country===curUser.filter:e.country!==curUser.filter;
   });
@@ -512,6 +548,7 @@ function switchTab(t){
   else if(t==='organisers')renderOrganisers();
   else if(t==='events')renderEvents();
   else if(t==='raw')renderRaw();
+  else if(t==='team')renderTeam();
   else if(t==='activity')renderActivity();
 }
 function drillDown(view,searchTerm){
@@ -828,6 +865,7 @@ function renderOppCards(){
         <div class="card-act-btns">
           ${ORG_ACTIONS_SET.has(o.organizer)?`<span class="act-done">✅</span>`:`<button class="act-btn" onclick="event.stopPropagation();actBtnClick(this,'${o.organizer.replace(/'/g,"\\'")}')">Worked on it</button>`}
           <button class="act-btn act-btn-sm" onclick="event.stopPropagation();showNoteModal('${o.organizer.replace(/'/g,"\\'")}')">📝</button>
+          <button class="act-btn-task" onclick="event.stopPropagation();showTaskModal('${o.organizer.replace(/'/g,"\\'")}')">📋 Task</button>
         </div>
       </div>
       ${o.tags.length?`<div class="card-tags">${o.tags.map(t=>`<span class="tag-sm">${t}</span>`).join('')}</div>`:''}
@@ -1529,6 +1567,119 @@ async function submitNote(org){
   const overlay=ta.closest('.note-modal-overlay');
   await logOrgAction(org,'note',note);
   if(overlay)overlay.remove();
+}
+
+/* ===== v3.0 ASANA TASK CREATION ===== */
+const ASANA_TEAM=[
+  {id:'kamila',name:'Kamila',asanaGid:'1213079297046105'},
+  {id:'mohammed',name:'Mohammed',asanaGid:'1206918887000855'},
+  {id:'taha',name:'Taha',asanaGid:'1204162711412246'},
+  {id:'alex',name:'Alex',asanaGid:'39708523251745'}
+];
+function getAssignableUsers(){
+  if(!curUser)return[];
+  const uid=curUser.id;
+  if(uid==='kamila')return ASANA_TEAM.filter(u=>u.id==='kamila');
+  if(uid==='mohammed')return ASANA_TEAM.filter(u=>u.id==='mohammed');
+  return ASANA_TEAM; // taha & alex can assign to anyone
+}
+function showTaskModal(org){
+  const assignable=getAssignableUsers();
+  const overlay=document.createElement('div');
+  overlay.className='task-modal-overlay';
+  overlay.onclick=e=>{if(e.target===overlay)overlay.remove();};
+  overlay.innerHTML=`<div class="task-modal">
+    <h3>📋 Create Asana Task</h3>
+    <div class="tm-org">${org}</div>
+    <label>Assign to</label>
+    <select id="taskAssignee">${assignable.map(u=>`<option value="${u.asanaGid}">${u.name}</option>`).join('')}</select>
+    <label>Task title</label>
+    <input id="taskTitle" placeholder="e.g. Follow up with ${org}" value="Follow up — ${org}">
+    <label>Description (optional)</label>
+    <textarea id="taskDesc" placeholder="Add details..."></textarea>
+    <label>Due date</label>
+    <input type="date" id="taskDue" value="${new Date(Date.now()+7*86400000).toISOString().split('T')[0]}">
+    <div class="tm-err" id="taskErr"></div>
+    <div class="tm-btns">
+      <button class="tm-btn tm-cancel" onclick="this.closest('.task-modal-overlay').remove()">Cancel</button>
+      <button class="tm-btn tm-save" id="taskSubmitBtn" onclick="submitTask('${org.replace(/'/g,"\\'")}')">Create Task</button>
+    </div>
+  </div>`;
+  document.body.appendChild(overlay);
+  overlay.addEventListener('keydown',e=>{if(e.key==='Escape')overlay.remove();});
+}
+async function submitTask(org){
+  const btn=document.getElementById('taskSubmitBtn');
+  const errEl=document.getElementById('taskErr');
+  const title=document.getElementById('taskTitle').value.trim();
+  const desc=document.getElementById('taskDesc').value.trim();
+  const assignee=document.getElementById('taskAssignee').value;
+  const due=document.getElementById('taskDue').value;
+  if(!title){errEl.textContent='Title is required';errEl.style.display='block';return;}
+  btn.textContent='Creating...';btn.disabled=true;errEl.style.display='none';
+  try{
+    const res=await fetch(window.location.origin+'/api/tasks',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({title,notes:desc+(org?`\n\nOrganiser: ${org}`:''),assignee,due_on:due,created_by:curUser.name})
+    });
+    const data=await res.json();
+    if(!res.ok)throw new Error(data.error||'Failed to create task');
+    const overlay=btn.closest('.task-modal-overlay');
+    if(overlay)overlay.remove();
+    showToast('✅','Task Created',`"${title}" assigned in Asana`);
+    await logOrgAction(org,'task',title);
+  }catch(e){
+    errEl.textContent=e.message;errEl.style.display='block';
+    btn.textContent='Create Task';btn.disabled=false;
+  }
+}
+
+/* ===== v3.0 TEAM STATS TAB ===== */
+async function renderTeam(){
+  const p=document.getElementById('pane-team');
+  if(!p)return;
+  let html='<h3 style="margin-bottom:16px">👥 Team Activity Overview</h3>';
+  if(!sb){p.innerHTML=html+'<p style="color:var(--text2)">Team data unavailable</p>';return;}
+  try{
+    const {data:allVisits}=await sb.from('dashboard_visits').select('user_name,logged_in_at').order('logged_in_at',{ascending:false}).limit(500);
+    const {data:allActions}=await sb.from('dashboard_org_actions').select('user_name,action,org,created_at').order('created_at',{ascending:false}).limit(500);
+    const teamNames=['Alex','Taha','Kamila','Mohammed'];
+    html+='<div class="team-grid">';
+    teamNames.forEach(name=>{
+      const visits=(allVisits||[]).filter(v=>v.user_name===name);
+      const actions=(allActions||[]).filter(a=>a.user_name===name);
+      const lastLogin=visits.length>0?new Date(visits[0].logged_in_at):null;
+      const totalLogins=visits.length;
+      const lastAction=actions.length>0?actions[0]:null;
+      const totalActions=actions.length;
+      const uniqueOrgs=new Set(actions.map(a=>a.org)).size;
+      const isRecent=lastLogin&&(Date.now()-lastLogin.getTime()<86400000);
+      html+=`<div class="team-card">
+        <h4><span class="team-online ${isRecent?'active':'inactive'}"></span>${name}</h4>
+        <div class="team-stat"><span class="team-stat-label">Last login</span><span class="team-stat-val">${lastLogin?getTimeAgo(lastLogin.toISOString()):'Never'}</span></div>
+        <div class="team-stat"><span class="team-stat-label">Total logins</span><span class="team-stat-val">${totalLogins}</span></div>
+        <div class="team-stat"><span class="team-stat-label">Last action</span><span class="team-stat-val">${lastAction?getTimeAgo(lastAction.created_at)+' — '+lastAction.action+' on '+lastAction.org.substring(0,25):'None'}</span></div>
+        <div class="team-stat"><span class="team-stat-label">Total actions</span><span class="team-stat-val">${totalActions}</span></div>
+        <div class="team-stat"><span class="team-stat-label">Unique orgs touched</span><span class="team-stat-val">${uniqueOrgs}</span></div>
+      </div>`;
+    });
+    html+='</div>';
+    // Recent team actions table
+    html+=`<div class="seg-card" style="margin-top:20px"><h3 style="margin-bottom:12px">⚡ Recent Team Actions</h3>`;
+    const recentAll=(allActions||[]).slice(0,20);
+    if(recentAll.length===0){html+='<div style="color:var(--text3);font-size:13px">No actions yet.</div>';}
+    else{
+      const actI={worked_on:'✅',note:'📝',call:'📞',email:'📧',meeting:'🤝',task:'📋'};
+      recentAll.forEach(a=>{
+        html+=`<div class="seg-row"><span>${actI[a.action]||'⚡'} <b>${a.user_name}</b> ${a.action} — ${a.org.substring(0,30)}</span><span style="color:var(--text3)">${getTimeAgo(a.created_at)}</span></div>`;
+      });
+    }
+    html+='</div>';
+    p.innerHTML=html;
+  }catch(e){
+    p.innerHTML=html+`<p style="color:var(--red)">Error loading team data: ${e.message}</p>`;
+  }
 }
 </script>
 </body>
