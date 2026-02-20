@@ -153,6 +153,30 @@ tr:hover td { background:var(--surface2); }
 .assign-btn{ padding:4px 10px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text2);font-size:12px;cursor:pointer; }
 .assign-btn:hover{ background:var(--surface3); }
 
+/* ACTION QUEUE */
+.action-queue { background:var(--surface); border-radius:var(--radius); padding:16px; margin-bottom:20px; border:1px solid var(--border); }
+.action-queue h3 { font-size:15px; margin-bottom:12px; display:flex; align-items:center; gap:8px; }
+.aq-list { display:flex; flex-direction:column; gap:6px; }
+.aq-item { display:flex; align-items:center; gap:12px; padding:10px 14px; border-radius:8px; background:var(--surface2); border-left:3px solid var(--amber); transition:background 0.2s; cursor:default; }
+.aq-item:hover { background:var(--surface3); }
+.aq-item.aq-hot { border-left-color:var(--red); }
+.aq-item.aq-warm { border-left-color:var(--amber); }
+.aq-item.aq-growth { border-left-color:var(--green); }
+.aq-icon { font-size:18px; flex-shrink:0; }
+.aq-body { flex:1; min-width:0; }
+.aq-org { font-size:13px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.aq-detail { font-size:11px; color:var(--text2); margin-top:2px; }
+.aq-metric { text-align:right; flex-shrink:0; }
+.aq-val { font-size:14px; font-weight:700; }
+.aq-label { font-size:10px; color:var(--text3); }
+
+/* TERRITORY SUMMARY */
+.territory-bar { background:var(--surface); border-radius:var(--radius); padding:14px 18px; margin-bottom:16px; display:flex; align-items:center; gap:16px; flex-wrap:wrap; border:1px solid var(--border); }
+.tb-item { display:flex; align-items:center; gap:6px; }
+.tb-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+.tb-text { font-size:12px; color:var(--text2); }
+.tb-val { font-size:14px; font-weight:700; }
+
 /* RESPONSIVE */
 @media(max-width:768px) {
   .content { padding:12px; }
@@ -160,6 +184,7 @@ tr:hover td { background:var(--surface2); }
   .chart-grid { grid-template-columns:1fr; }
   .kpi-row { grid-template-columns:repeat(2,1fr); }
   .tab { padding:10px 14px; font-size:12px; }
+  .territory-bar { flex-direction:column; align-items:flex-start; }
 }
 @media(max-width:480px) {
   .kpi-row { grid-template-columns:1fr; }
@@ -207,7 +232,7 @@ tr:hover td { background:var(--surface2); }
 <div class="login-wrap" id="loginWrap">
 <div class="login-box">
 <h1>Paid Marketing Intelligence</h1>
-<p>v2.1 — Sales Intelligence Dashboard</p>
+<p>v2.2 — Sales Intelligence Dashboard</p>
 <select id="userSel">
 <option value="">Select user...</option>
 <option value="alex">Alex (All regions)</option>
@@ -304,7 +329,7 @@ let evtListPage=0, evtListSort={col:'rev',asc:false}, evtListSearch='';
 /* FORMATTERS */
 const fmt=n=>{if(n==null)return'-';if(Math.abs(n)>=1e6)return(n/1e6).toFixed(1)+'M';if(Math.abs(n)>=1e3)return(n/1e3).toFixed(1)+'K';return n.toFixed?n.toFixed(0):n;};
 const fmtPct=n=>n!=null?(n>0?'+':'')+n.toFixed(1)+'%':'-';
-const fmtCur=n=>{if(n==null)return'-';if(Math.abs(n)>=1e6)return'$'+(n/1e6).toFixed(1)+'M';if(Math.abs(n)>=1e3)return'$'+(n/1e3).toFixed(0)+'K';return'$'+Math.round(n);};
+const fmtCur=n=>{if(n==null)return'-';if(Math.abs(n)>=1e9)return'AED '+(n/1e9).toFixed(1)+'B';if(Math.abs(n)>=1e6)return'AED '+(n/1e6).toFixed(1)+'M';if(Math.abs(n)>=1e3)return'AED '+(n/1e3).toFixed(0)+'K';return'AED '+Math.round(n);};
 
 /* LOGIN */
 async function doLogin(){
@@ -376,14 +401,36 @@ function renderOverview(){
   const atRisk=ORGS.filter(o=>o.lc==='at-risk').length;
   const growing=ORGS.filter(o=>o.gt==='accelerating').length;
 
+  // Territory summary
+  const countries={};ORGS.forEach(o=>{if(!countries[o.country])countries[o.country]={cnt:0,rev:0};countries[o.country].cnt++;countries[o.country].rev+=o.tt;});
+  const topCountries=Object.entries(countries).sort((a,b)=>b[1].rev-a[1].rev).slice(0,5);
+  const territoryHtml=curUser.filter?`<div class="territory-bar"><div class="tb-item"><span style="font-size:14px">📍</span><span class="tb-text"><b>${curUser.name}</b> — ${curUser.mode==='only'?curUser.filter:'GCC (Non-UAE)'}</span></div><div class="tb-item"><div class="tb-dot" style="background:var(--accent2)"></div><span class="tb-text">${ORGS.length} orgs</span></div><div class="tb-item"><div class="tb-dot" style="background:var(--green)"></div><span class="tb-text">${fmtCur(totalTick)} ticketing</span></div><div class="tb-item"><div class="tb-dot" style="background:var(--amber)"></div><span class="tb-text">${hotCount+warmCount} hot/warm leads</span></div></div>`:`<div class="territory-bar"><div class="tb-item"><span style="font-size:14px">🌍</span><span class="tb-text"><b>${curUser.name}</b> — All Regions</span></div>${topCountries.map(([c,d])=>`<div class="tb-item"><div class="tb-dot" style="background:var(--accent2)"></div><span class="tb-text">${c}: ${d.cnt} orgs (${fmtCur(d.rev)})</span></div>`).join('')}</div>`;
+
+  // Priority Actions queue — top 8 most urgent
+  const actionQueue=[...ORGS].filter(o=>o.sr==='hot'||o.rs>60||o.gt==='decelerating').sort((a,b)=>{const aPri=(a.sr==='hot'?30:0)+(a.rs>60?a.rs*0.3:0)+(a.gt==='decelerating'?20:0)+a.ps*0.2;const bPri=(b.sr==='hot'?30:0)+(b.rs>60?b.rs*0.3:0)+(b.gt==='decelerating'?20:0)+b.ps*0.2;return bPri-aPri;}).slice(0,8);
+  const aqIcons={Upsell:'💰',Retain:'🛡️',Acquire:'🎯',Pitch:'📞',Accelerate:'🚀',Expand:'📈',Grow:'🌱',Defend:'⚔️',Engage:'🤝',Monitor:'👁️'};
+
   p.innerHTML=`
+  ${territoryHtml}
   <div class="kpi-row">
     <div class="kpi"><div class="kpi-label">Total Ticketing Revenue</div><div class="kpi-val">${fmtCur(totalTick)}</div><div class="kpi-sub">${ORGS.length} organisers</div></div>
     <div class="kpi"><div class="kpi-label">Total Mkt Revenue</div><div class="kpi-val">${fmtCur(totalMkt)}</div><div class="kpi-sub">${avgShare.toFixed(1)}% avg share</div></div>
-    <div class="kpi"><div class="kpi-label">Revenue Potential</div><div class="kpi-val" style="color:var(--green)">${fmtCur(totalRP)}</div><div class="kpi-sub">12M uplift if at benchmark</div></div>
-    <div class="kpi"><div class="kpi-label">Hot Prospects</div><div class="kpi-val" style="color:var(--red)">${hotCount}</div><div class="kpi-sub">${warmCount} warm leads</div></div>
-    <div class="kpi"><div class="kpi-label">At Risk</div><div class="kpi-val" style="color:var(--amber)">${atRisk}</div><div class="kpi-sub">Need attention</div></div>
-    <div class="kpi"><div class="kpi-label">Growing</div><div class="kpi-val" style="color:var(--green)">${growing}</div><div class="kpi-sub">Accelerating orgs</div></div>
+    <div class="kpi"><div class="kpi-label">Revenue Potential</div><div class="kpi-val" style="color:var(--green)">${fmtCur(totalRP)}</div><div class="kpi-sub">Uplift if at benchmark</div></div>
+    <div class="kpi"><div class="kpi-label">🔥 Hot Prospects</div><div class="kpi-val" style="color:var(--red)">${hotCount}</div><div class="kpi-sub">${warmCount} warm leads</div></div>
+    <div class="kpi"><div class="kpi-label">⚠️ At Risk</div><div class="kpi-val" style="color:var(--amber)">${atRisk}</div><div class="kpi-sub">Need attention</div></div>
+    <div class="kpi"><div class="kpi-label">🚀 Growing</div><div class="kpi-val" style="color:var(--green)">${growing}</div><div class="kpi-sub">Accelerating orgs</div></div>
+  </div>
+  <div class="action-queue">
+    <h3>⚡ Priority Actions Today</h3>
+    <div class="aq-list">
+      ${actionQueue.map(o=>{
+        const action=o.nba.split('—')[0].trim();
+        const detail=o.nba.split('—').slice(1).join('—').trim();
+        const icon=aqIcons[action]||'⚡';
+        const cls=o.sr==='hot'?'aq-hot':o.rs>60?'aq-warm':'aq-growth';
+        return`<div class="aq-item ${cls}"><div class="aq-icon">${icon}</div><div class="aq-body"><div class="aq-org">${o.organizer}</div><div class="aq-detail">${action}: ${detail} · ${o.country} · ${o.tier}</div></div><div class="aq-metric"><div class="aq-val" style="color:var(--green)">${fmtCur(o.rp)}</div><div class="aq-label">potential</div></div></div>`;
+      }).join('')}
+    </div>
   </div>
   <div class="chart-grid">
     <div class="chart-box"><h3>Revenue Trend (Ticketing vs Marketing)</h3><canvas id="chRevTrend"></canvas></div>
