@@ -490,7 +490,7 @@ function renderOpps(){
 
   // Tag counts for chips
   const tagCounts={};ORGS.forEach(o=>o.tags.forEach(t=>{tagCounts[t]=(tagCounts[t]||0)+1;}));
-  const TAG_META={'low-share-opportunity':{l:'Low Share Big Rev',i:'📈'},'high-share':{l:'High Share',i:'⭐'},'fast-growing':{l:'Fast Growing',i:'🚀'},'declining':{l:'Declining',i:'📉'},'zero-mkt':{l:'Zero Marketing',i:'🔴'},'untapped-big':{l:'Untapped Big',i:'💎'},'premier-low-share':{l:'Premier Low Share',i:'👑'},'call-today':{l:'Call Today',i:'📞'},'scaling':{l:'Scaling',i:'📈'},'defend-now':{l:'Defend Now',i:'🛡️'},'whale-prospect':{l:'Whale Prospect',i:'🐋'};
+  const TAG_META={'low-share-opportunity':{l:'Low Share Big Rev',i:'📈'},'high-share':{l:'High Share',i:'⭐'},'fast-growing':{l:'Fast Growing',i:'🚀'},'declining':{l:'Declining',i:'📉'},'zero-mkt':{l:'Zero Marketing',i:'🔴'},'untapped-big':{l:'Untapped Big',i:'💎'},'premier-low-share':{l:'Premier Low Share',i:'👑'},'call-today':{l:'Call Today',i:'📞'},'scaling':{l:'Scaling',i:'📈'},'defend-now':{l:'Defend Now',i:'🛡️'},'whale-prospect':{l:'Whale Prospect',i:'🐋'}};
 
   let html=`
   <div class="view-chips">
@@ -648,7 +648,7 @@ function renderPerf(){
 
   // Priority vs Risk scatter
   const sample=ORGS.filter(o=>o.ps>30||o.rs>30);
-  charts.heat=new Chart(document.getElementById('chHeat'),{type:'scatter',data:{datasets:[{data:sample.map(o=>({x:o.ps,y:o.rs})),backgroundColor:sample.map(o=>o.sr==='hot'?'rgba(239,68,68,0.7)':o.sr==='warm'?'rgba(245,158,11,0.7)':'rgba(59,130,246,0.4)'),pointRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>{const o=sample[ctx.dataIndex];return`${o.organizer}: PS=${o.ps}, RS=${o.rs}`;}}},scales:{x:{title:{display:true,text:'Priority Score →',color:'#9aa0b0'},ticks:{color:'#6b7280'}},y:{title:{display:true,text:'Risk Score →',color:'#9aa0b0'},ticks:{color:'#6b7280'}}}}}); 
+  charts.heat=new Chart(document.getElementById('chHeat'),{type:'scatter',data:{datasets:[{data:sample.map(o=>({x:o.ps,y:o.rs})),backgroundColor:sample.map(o=>o.sr==='hot'?'rgba(239,68,68,0.7)':o.sr==='warm'?'rgba(245,158,11,0.7)':'rgba(59,130,246,0.4)'),pointRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>{const o=sample[ctx.dataIndex];return`${o.organizer}: PS=${o.ps}, RS=${o.rs}`;}}}},scales:{x:{title:{display:true,text:'Priority Score →',color:'#9aa0b0'},ticks:{color:'#6b7280'}},y:{title:{display:true,text:'Risk Score →',color:'#9aa0b0'},ticks:{color:'#6b7280'}}}}}); 
 
   // Alert cards
   const alerts=ORGS.filter(o=>o.rs>60||o.gt==='decelerating').sort((a,b)=>b.rs-a.rs).slice(0,12);
