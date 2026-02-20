@@ -405,21 +405,21 @@ function renderOverview(){
   charts.revTrend=new Chart(document.getElementById('chRevTrend'),{type:'bar',data:{labels:years,datasets:[
     {label:'Ticketing',data:tickByYear,backgroundColor:'rgba(59,130,246,0.7)',borderRadius:4},
     {label:'Marketing',data:mktByYear,backgroundColor:'rgba(16,185,129,0.7)',borderRadius:4}
-  ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#9aa0b0'}},scales:{x:{ticks:{color:'#6b7280'},y:{ticks:{color:'#6b7280',callback:v=>fmtCur(v)}}});
+  ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#9aa0b0'}}},scales:{x:{ticks:{color:'#6b7280'}},y:{ticks:{color:'#6b7280',callback:v=>fmtCur(v)}}}}});
 
   // Readiness donut
   const readCounts={};ORGS.forEach(o=>{readCounts[o.sr]=(readCounts[o.sr]||0)+1;});
-  charts.readiness=new Chart(document.getElementById('chReadiness'),{type:'doughnut',data:{labels:Object.keys(readCounts).map(k=>k.charAt(0).toUpperCase()+k.slice(1)),datasets:[{data:Object.values(readCounts),backgroundColor:['#EF4444','#F59E0B','#6b7280','#3B82F6']}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'right',labels:{color:'#9aa0b0'}}});
+  charts.readiness=new Chart(document.getElementById('chReadiness'),{type:'doughnut',data:{labels:Object.keys(readCounts).map(k=>k.charAt(0).toUpperCase()+k.slice(1)),datasets:[{data:Object.values(readCounts),backgroundColor:['#EF4444','#F59E0B','#6b7280','#3B82F6']}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'right',labels:{color:'#9aa0b0'}}}}}); 
 
   // Lifecycle donut
   const lcCounts={};ORGS.forEach(o=>{lcCounts[o.lc]=(lcCounts[o.lc]||0)+1;});
   const lcColors={prospect:'#F59E0B',active:'#3B82F6',growth:'#10B981','at-risk':'#EF4444',mature:'#8B5CF6',dormant:'#6b7280'};
-  charts.lifecycle=new Chart(document.getElementById('chLifecycle'),{type:'doughnut',data:{labels:Object.keys(lcCounts).map(k=>k.charAt(0).toUpperCase()+k.slice(1)),datasets:[{data:Object.values(lcCounts),backgroundColor:Object.keys(lcCounts).map(k=>lcColors[k]||'#6b7280')}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'right',labels:{color:'#9aa0b0'}}});
+  charts.lifecycle=new Chart(document.getElementById('chLifecycle'),{type:'doughnut',data:{labels:Object.keys(lcCounts).map(k=>k.charAt(0).toUpperCase()+k.slice(1)),datasets:[{data:Object.values(lcCounts),backgroundColor:Object.keys(lcCounts).map(k=>lcColors[k]||'#6b7280')}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'right',labels:{color:'#9aa0b0'}}}}}); 
 
   // Trajectory bar
   const gtCounts={};ORGS.forEach(o=>{gtCounts[o.gt]=(gtCounts[o.gt]||0)+1;});
   const gtColors={accelerating:'#10B981',stable:'#3B82F6',decelerating:'#EF4444',mixed:'#F59E0B'};
-  charts.trajectory=new Chart(document.getElementById('chTrajectory'),{type:'bar',data:{labels:Object.keys(gtCounts).map(k=>k.charAt(0).toUpperCase()+k.slice(1)),datasets:[{data:Object.values(gtCounts),backgroundColor:Object.keys(gtCounts).map(k=>gtColors[k]||'#6b7280'),borderRadius:6}]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},scales:{x:{ticks:{color:'#6b7280'},y:{ticks:{color:'#9aa0b0'}}});
+  charts.trajectory=new Chart(document.getElementById('chTrajectory'),{type:'bar',data:{labels:Object.keys(gtCounts).map(k=>k.charAt(0).toUpperCase()+k.slice(1)),datasets:[{data:Object.values(gtCounts),backgroundColor:Object.keys(gtCounts).map(k=>gtColors[k]||'#6b7280'),borderRadius:6}]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#6b7280'}},y:{ticks:{color:'#9aa0b0'}}}}}); 
 
   // Segments
   const top5ps=[...ORGS].sort((a,b)=>b.ps-a.ps).slice(0,5);
@@ -471,12 +471,12 @@ function renderPipeline(){
   // Actions chart
   const actionLabels=Object.keys(actionCounts);
   const actionColors=['#10B981','#F59E0B','#EF4444','#3B82F6','#8B5CF6','#EC4899','#6366F1','#14B8A6','#F97316','#6b7280'];
-  charts.actions=new Chart(document.getElementById('chActions'),{type:'bar',data:{labels:actionLabels,datasets:[{data:Object.values(actionCounts),backgroundColor:actionColors.slice(0,actionLabels.length),borderRadius:6}]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},scales:{x:{ticks:{color:'#6b7280'},y:{ticks:{color:'#9aa0b0',font:{size:11}}});
+  charts.actions=new Chart(document.getElementById('chActions'),{type:'bar',data:{labels:actionLabels,datasets:[{data:Object.values(actionCounts),backgroundColor:actionColors.slice(0,actionLabels.length),borderRadius:6}]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#6b7280'}},y:{ticks:{color:'#9aa0b0',font:{size:11}}}}}}); 
 
   // Scatter: Priority vs Revenue Potential
   const top50=[...ORGS].sort((a,b)=>b.ps-a.ps).slice(0,50);
   const scatterData=top50.map(o=>({x:o.ps,y:o.rp,label:o.organizer}));
-  charts.scatter=new Chart(document.getElementById('chScatter'),{type:'scatter',data:{datasets:[{data:scatterData,backgroundColor:top50.map(o=>o.sr==='hot'?'#EF4444':o.sr==='warm'?'#F59E0B':'#3B82F6'),pointRadius:6}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>`${scatterData[ctx.dataIndex].label}: PS=${ctx.parsed.x}, RP=${fmtCur(ctx.parsed.y)}`}},scales:{x:{title:{display:true,text:'Priority Score',color:'#9aa0b0'},ticks:{color:'#6b7280'},y:{title:{display:true,text:'Revenue Potential',color:'#9aa0b0'},ticks:{color:'#6b7280',callback:v=>fmtCur(v)}}});
+  charts.scatter=new Chart(document.getElementById('chScatter'),{type:'scatter',data:{datasets:[{data:scatterData,backgroundColor:top50.map(o=>o.sr==='hot'?'#EF4444':o.sr==='warm'?'#F59E0B':'#3B82F6'),pointRadius:6}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>`${scatterData[ctx.dataIndex].label}: PS=${ctx.parsed.x}, RP=${fmtCur(ctx.parsed.y)}`}}},scales:{x:{title:{display:true,text:'Priority Score',color:'#9aa0b0'},ticks:{color:'#6b7280'}},y:{title:{display:true,text:'Revenue Potential',color:'#9aa0b0'},ticks:{color:'#6b7280',callback:v=>fmtCur(v)}}}}});
 }
 
 /* ===== OPPORTUNITIES TAB ===== */
@@ -631,7 +631,7 @@ function renderPerf(){
   charts.country=new Chart(document.getElementById('chCountry'),{type:'bar',data:{labels:sortedCountries.map(c=>c[0]),datasets:[
     {label:'Ticketing',data:sortedCountries.map(c=>c[1].tick),backgroundColor:'rgba(59,130,246,0.7)',borderRadius:4},
     {label:'Marketing',data:sortedCountries.map(c=>c[1].mkt),backgroundColor:'rgba(16,185,129,0.7)',borderRadius:4}
-  ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#9aa0b0'}},scales:{x:{ticks:{color:'#6b7280',maxRotation:45},y:{ticks:{color:'#6b7280',callback:v=>fmtCur(v)}}});
+  ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#9aa0b0'}}},scales:{x:{ticks:{color:'#6b7280',maxRotation:45}},y:{ticks:{color:'#6b7280',callback:v=>fmtCur(v)}}}}});
 
   // Tier chart
   const tierLabels=Object.keys(byTier).sort();
@@ -639,16 +639,16 @@ function renderPerf(){
     {label:'Ticketing',data:tierLabels.map(t=>byTier[t].tick),backgroundColor:'rgba(59,130,246,0.7)',borderRadius:4},
     {label:'Marketing',data:tierLabels.map(t=>byTier[t].mkt),backgroundColor:'rgba(16,185,129,0.7)',borderRadius:4},
     {label:'Potential',data:tierLabels.map(t=>byTier[t].rp),backgroundColor:'rgba(139,92,246,0.4)',borderRadius:4}
-  ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#9aa0b0'}},scales:{x:{ticks:{color:'#6b7280'},y:{ticks:{color:'#6b7280',callback:v=>fmtCur(v)}}});
+  ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#9aa0b0'}}},scales:{x:{ticks:{color:'#6b7280'}},y:{ticks:{color:'#6b7280',callback:v=>fmtCur(v)}}}}});
 
   // Share distribution histogram
   const shareBuckets={'0%':0,'0-1%':0,'1-3%':0,'3-5%':0,'5-10%':0,'10%+':0};
   ORGS.forEach(o=>{const s=o.ts;if(s===0)shareBuckets['0%']++;else if(s<1)shareBuckets['0-1%']++;else if(s<3)shareBuckets['1-3%']++;else if(s<5)shareBuckets['3-5%']++;else if(s<10)shareBuckets['5-10%']++;else shareBuckets['10%+']++;});
-  charts.shareDist=new Chart(document.getElementById('chShareDist'),{type:'bar',data:{labels:Object.keys(shareBuckets),datasets:[{data:Object.values(shareBuckets),backgroundColor:['#6b7280','#EF4444','#F59E0B','#3B82F6','#10B981','#8B5CF6'],borderRadius:6}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},scales:{x:{ticks:{color:'#6b7280'},y:{ticks:{color:'#6b7280'}}});
+  charts.shareDist=new Chart(document.getElementById('chShareDist'),{type:'bar',data:{labels:Object.keys(shareBuckets),datasets:[{data:Object.values(shareBuckets),backgroundColor:['#6b7280','#EF4444','#F59E0B','#3B82F6','#10B981','#8B5CF6'],borderRadius:6}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#6b7280'}},y:{ticks:{color:'#6b7280'}}}}}); 
 
   // Priority vs Risk scatter
   const sample=ORGS.filter(o=>o.ps>30||o.rs>30);
-  charts.heat=new Chart(document.getElementById('chHeat'),{type:'scatter',data:{datasets:[{data:sample.map(o=>({x:o.ps,y:o.rs})),backgroundColor:sample.map(o=>o.sr==='hot'?'rgba(239,68,68,0.7)':o.sr==='warm'?'rgba(245,158,11,0.7)':'rgba(59,130,246,0.4)'),pointRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>{const o=sample[ctx.dataIndex];return`${o.organizer}: PS=${o.ps}, RS=${o.rs}`;}},scales:{x:{title:{display:true,text:'Priority Score →',color:'#9aa0b0'},ticks:{color:'#6b7280'},y:{title:{display:true,text:'Risk Score →',color:'#9aa0b0'},ticks:{color:'#6b7280'}}});
+  charts.heat=new Chart(document.getElementById('chHeat'),{type:'scatter',data:{datasets:[{data:sample.map(o=>({x:o.ps,y:o.rs})),backgroundColor:sample.map(o=>o.sr==='hot'?'rgba(239,68,68,0.7)':o.sr==='warm'?'rgba(245,158,11,0.7)':'rgba(59,130,246,0.4)'),pointRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>{const o=sample[ctx.dataIndex];return`${o.organizer}: PS=${o.ps}, RS=${o.rs}`;}}},scales:{x:{title:{display:true,text:'Priority Score →',color:'#9aa0b0'},ticks:{color:'#6b7280'}},y:{title:{display:true,text:'Risk Score →',color:'#9aa0b0'},ticks:{color:'#6b7280'}}}}}); 
 
   // Alert cards
   const alerts=ORGS.filter(o=>o.rs>60||o.gt==='decelerating').sort((a,b)=>b.rs-a.rs).slice(0,12);
