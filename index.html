@@ -3,23 +3,30 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Paid Marketing Intelligence v2.2</title>
+<title>Platinumlist — Paid Marketing Intelligence v2.3</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 :root {
-  --bg: #0f1117; --surface: #1a1d27; --surface2: #242836; --surface3: #2d3244;
-  --text: #e8eaed; --text2: #9aa0b0; --text3: #6b7280;
-  --accent: #0066CC; --accent2: #3b82f6;
-  --green: #10B981; --green-bg: rgba(16,185,129,0.12);
+  /* Platinumlist B2B Brand Palette */
+  --bg: #0A181C; --surface: #0f2229; --surface2: #162e36; --surface3: #1c3a44;
+  --text: #e8edf0; --text2: #8fa8b4; --text3: #5d7a86;
+  --accent: #79E2FF; --accent2: #00A5D3;
+  --green: #C7F88A; --green-bg: rgba(199,248,138,0.12);
   --amber: #F59E0B; --amber-bg: rgba(245,158,11,0.12);
   --red: #EF4444; --red-bg: rgba(239,68,68,0.12);
-  --blue: #3B82F6; --blue-bg: rgba(59,130,246,0.12);
+  --blue: #79E2FF; --blue-bg: rgba(121,226,255,0.12);
   --purple: #8B5CF6; --purple-bg: rgba(139,92,246,0.12);
-  --border: #2d3244; --radius: 10px;
+  --border: #1c3a44; --radius: 10px;
+  /* Platinumlist brand colors */
+  --pl-storm: #0A181C; --pl-monday: #79E2FF; --pl-day: #C7F88A;
+  --pl-suede: #00A5D3; --pl-electro: #221327;
 }
 * { margin:0; padding:0; box-sizing:border-box; }
-body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; background:var(--bg); color:var(--text); min-height:100vh; }
+body { font-family:'Inter',sans-serif; background:var(--bg); color:var(--text); min-height:100vh; -webkit-font-smoothing:antialiased; }
 
 /* LOGIN */
 .login-wrap { display:flex; align-items:center; justify-content:center; min-height:100vh; padding:20px; }
@@ -27,8 +34,8 @@ body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif
 .login-box h1 { font-size:22px; margin-bottom:6px; }
 .login-box p { color:var(--text2); font-size:13px; margin-bottom:24px; }
 .login-box select, .login-box input { width:100%; padding:12px 16px; border-radius:8px; border:1px solid var(--border); background:var(--surface2); color:var(--text); font-size:14px; margin-bottom:12px; outline:none; }
-.login-box button { width:100%; padding:12px; border-radius:8px; border:none; background:var(--accent); color:#fff; font-size:15px; font-weight:600; cursor:pointer; }
-.login-box button:hover { background:var(--accent2); }
+.login-box button { width:100%; padding:12px; border-radius:8px; border:none; background:var(--pl-suede); color:#fff; font-size:15px; font-weight:600; cursor:pointer; transition:background 0.2s; }
+.login-box button:hover { background:var(--pl-monday); color:var(--pl-storm); }
 .login-err { color:var(--red); font-size:13px; margin-top:8px; display:none; }
 
 /* APP */
@@ -43,7 +50,7 @@ body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif
 .tabs { display:flex; gap:2px; padding:0 24px; background:var(--surface); border-bottom:1px solid var(--border); overflow-x:auto; }
 .tab { padding:12px 20px; font-size:13px; font-weight:500; color:var(--text2); cursor:pointer; border-bottom:2px solid transparent; white-space:nowrap; transition:all 0.2s; }
 .tab:hover { color:var(--text); }
-.tab.active { color:var(--accent2); border-bottom-color:var(--accent2); }
+.tab.active { color:var(--pl-monday); border-bottom-color:var(--pl-monday); }
 
 /* CONTENT */
 .content { padding:20px 24px; max-width:1400px; margin:0 auto; }
@@ -65,8 +72,8 @@ body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif
 /* SMART CHIPS */
 .chips { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:16px; }
 .chip { padding:6px 14px; border-radius:20px; font-size:12px; font-weight:500; cursor:pointer; border:1px solid var(--border); background:var(--surface2); color:var(--text2); transition:all 0.2s; }
-.chip:hover { border-color:var(--accent); }
-.chip.active { border-color:var(--accent2); background:var(--blue-bg); color:var(--accent2); }
+.chip:hover { border-color:var(--pl-monday); }
+.chip.active { border-color:var(--pl-monday); background:var(--blue-bg); color:var(--pl-monday); }
 .chip .cnt { margin-left:4px; opacity:0.7; }
 
 /* VIEW CHIPS */
@@ -81,12 +88,12 @@ body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif
 .vc-risk { background:var(--purple-bg); color:var(--purple); }
 .vc-risk.active { background:var(--purple); color:#fff; }
 .vc-all { background:var(--surface2); color:var(--text2); }
-.vc-all.active { background:var(--accent); color:#fff; }
+.vc-all.active { background:var(--pl-suede); color:#fff; }
 
 /* CARDS */
 .cards { display:grid; grid-template-columns:repeat(auto-fill,minmax(360px,1fr)); gap:12px; }
 .card { background:var(--surface); border-radius:var(--radius); border:1px solid var(--border); overflow:hidden; transition:border-color 0.2s; }
-.card:hover { border-color:var(--accent); }
+.card:hover { border-color:var(--pl-suede); }
 .card-head { display:flex; justify-content:space-between; align-items:flex-start; padding:14px 16px 10px; }
 .card-name { font-size:14px; font-weight:600; max-width:70%; }
 .card-badges { display:flex; gap:4px; flex-wrap:wrap; justify-content:flex-end; }
@@ -134,7 +141,7 @@ tr:hover td { background:var(--surface2); }
 .pag-info { font-size:13px; color:var(--text2); }
 .pag-btns { display:flex; gap:6px; }
 .pag-btn { padding:6px 14px; border-radius:6px; border:1px solid var(--border); background:var(--surface); color:var(--text); font-size:13px; cursor:pointer; }
-.pag-btn.active { background:var(--accent); border-color:var(--accent); }
+.pag-btn.active { background:var(--pl-suede); border-color:var(--pl-suede); color:#fff; }
 .pag-btn:disabled { opacity:0.3; cursor:not-allowed; }
 
 /* SEGMENTS */
@@ -231,8 +238,9 @@ tr:hover td { background:var(--surface2); }
 <!-- LOGIN -->
 <div class="login-wrap" id="loginWrap">
 <div class="login-box">
-<h1>Paid Marketing Intelligence</h1>
-<p>v2.2 — Sales Intelligence Dashboard</p>
+<div style="margin-bottom:16px;font-size:28px;font-weight:800;letter-spacing:-0.5px;color:var(--pl-monday);">Platinumlist</div>
+<h1 style="font-size:18px;font-weight:600;">Paid Marketing Intelligence</h1>
+<p>v2.3 — for Organisers</p>
 <select id="userSel">
 <option value="">Select user...</option>
 <option value="alex">Alex (All regions)</option>
@@ -249,7 +257,7 @@ tr:hover td { background:var(--surface2); }
 <!-- APP -->
 <div class="app" id="app">
 <div class="topbar">
-<h2>Paid Marketing Intelligence</h2>
+<h2><span style="color:var(--pl-monday);font-weight:800;">Platinumlist</span> Marketing Intelligence</h2>
 <div class="topbar-right">
 <span class="user-badge" id="userBadge"></span>
 <button class="ach-btn" onclick="toggleAch()">🏆 <span id="achCountBadge" class="ach-count">0</span></button>
@@ -452,21 +460,21 @@ function renderOverview(){
   charts.revTrend=new Chart(document.getElementById('chRevTrend'),{type:'bar',data:{labels:years,datasets:[
     {label:'Ticketing',data:tickByYear,backgroundColor:'rgba(59,130,246,0.7)',borderRadius:4},
     {label:'Marketing',data:mktByYear,backgroundColor:'rgba(16,185,129,0.7)',borderRadius:4}
-  ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#9aa0b0'}}},scales:{x:{ticks:{color:'#6b7280'}},y:{ticks:{color:'#6b7280',callback:v=>fmtCur(v)}}}}});
+  ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#8fa8b4'}}},scales:{x:{ticks:{color:'#5d7a86'}},y:{ticks:{color:'#5d7a86',callback:v=>fmtCur(v)}}}}});
 
   // Readiness donut
   const readCounts={};ORGS.forEach(o=>{readCounts[o.sr]=(readCounts[o.sr]||0)+1;});
-  charts.readiness=new Chart(document.getElementById('chReadiness'),{type:'doughnut',data:{labels:Object.keys(readCounts).map(k=>k.charAt(0).toUpperCase()+k.slice(1)),datasets:[{data:Object.values(readCounts),backgroundColor:['#EF4444','#F59E0B','#6b7280','#3B82F6']}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'right',labels:{color:'#9aa0b0'}}}}}); 
+  charts.readiness=new Chart(document.getElementById('chReadiness'),{type:'doughnut',data:{labels:Object.keys(readCounts).map(k=>k.charAt(0).toUpperCase()+k.slice(1)),datasets:[{data:Object.values(readCounts),backgroundColor:['#EF4444','#F59E0B','#6b7280','#79E2FF']}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'right',labels:{color:'#8fa8b4'}}}}}); 
 
   // Lifecycle donut
   const lcCounts={};ORGS.forEach(o=>{lcCounts[o.lc]=(lcCounts[o.lc]||0)+1;});
-  const lcColors={prospect:'#F59E0B',active:'#3B82F6',growth:'#10B981','at-risk':'#EF4444',mature:'#8B5CF6',dormant:'#6b7280'};
-  charts.lifecycle=new Chart(document.getElementById('chLifecycle'),{type:'doughnut',data:{labels:Object.keys(lcCounts).map(k=>k.charAt(0).toUpperCase()+k.slice(1)),datasets:[{data:Object.values(lcCounts),backgroundColor:Object.keys(lcCounts).map(k=>lcColors[k]||'#6b7280')}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'right',labels:{color:'#9aa0b0'}}}}}); 
+  const lcColors={prospect:'#F59E0B',active:'#79E2FF',growth:'#C7F88A','at-risk':'#EF4444',mature:'#8B5CF6',dormant:'#6b7280'};
+  charts.lifecycle=new Chart(document.getElementById('chLifecycle'),{type:'doughnut',data:{labels:Object.keys(lcCounts).map(k=>k.charAt(0).toUpperCase()+k.slice(1)),datasets:[{data:Object.values(lcCounts),backgroundColor:Object.keys(lcCounts).map(k=>lcColors[k]||'#6b7280')}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'right',labels:{color:'#8fa8b4'}}}}}); 
 
   // Trajectory bar
   const gtCounts={};ORGS.forEach(o=>{gtCounts[o.gt]=(gtCounts[o.gt]||0)+1;});
-  const gtColors={accelerating:'#10B981',stable:'#3B82F6',decelerating:'#EF4444',mixed:'#F59E0B'};
-  charts.trajectory=new Chart(document.getElementById('chTrajectory'),{type:'bar',data:{labels:Object.keys(gtCounts).map(k=>k.charAt(0).toUpperCase()+k.slice(1)),datasets:[{data:Object.values(gtCounts),backgroundColor:Object.keys(gtCounts).map(k=>gtColors[k]||'#6b7280'),borderRadius:6}]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#6b7280'}},y:{ticks:{color:'#9aa0b0'}}}}}); 
+  const gtColors={accelerating:'#C7F88A',stable:'#79E2FF',decelerating:'#EF4444',mixed:'#F59E0B'};
+  charts.trajectory=new Chart(document.getElementById('chTrajectory'),{type:'bar',data:{labels:Object.keys(gtCounts).map(k=>k.charAt(0).toUpperCase()+k.slice(1)),datasets:[{data:Object.values(gtCounts),backgroundColor:Object.keys(gtCounts).map(k=>gtColors[k]||'#6b7280'),borderRadius:6}]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#5d7a86'}},y:{ticks:{color:'#8fa8b4'}}}}}); 
 
   // Segments
   const top5ps=[...ORGS].sort((a,b)=>b.ps-a.ps).slice(0,5);
@@ -517,13 +525,13 @@ function renderPipeline(){
 
   // Actions chart
   const actionLabels=Object.keys(actionCounts);
-  const actionColors=['#10B981','#F59E0B','#EF4444','#3B82F6','#8B5CF6','#EC4899','#6366F1','#14B8A6','#F97316','#6b7280'];
-  charts.actions=new Chart(document.getElementById('chActions'),{type:'bar',data:{labels:actionLabels,datasets:[{data:Object.values(actionCounts),backgroundColor:actionColors.slice(0,actionLabels.length),borderRadius:6}]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#6b7280'}},y:{ticks:{color:'#9aa0b0',font:{size:11}}}}}}); 
+  const actionColors=['#C7F88A','#F59E0B','#EF4444','#79E2FF','#8B5CF6','#EC4899','#6366F1','#14B8A6','#F97316','#6b7280'];
+  charts.actions=new Chart(document.getElementById('chActions'),{type:'bar',data:{labels:actionLabels,datasets:[{data:Object.values(actionCounts),backgroundColor:actionColors.slice(0,actionLabels.length),borderRadius:6}]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#5d7a86'}},y:{ticks:{color:'#8fa8b4',font:{size:11}}}}}}); 
 
   // Scatter: Priority vs Revenue Potential
   const top50=[...ORGS].sort((a,b)=>b.ps-a.ps).slice(0,50);
   const scatterData=top50.map(o=>({x:o.ps,y:o.rp,label:o.organizer}));
-  charts.scatter=new Chart(document.getElementById('chScatter'),{type:'scatter',data:{datasets:[{data:scatterData,backgroundColor:top50.map(o=>o.sr==='hot'?'#EF4444':o.sr==='warm'?'#F59E0B':'#3B82F6'),pointRadius:6}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>`${scatterData[ctx.dataIndex].label}: PS=${ctx.parsed.x}, RP=${fmtCur(ctx.parsed.y)}`}}},scales:{x:{title:{display:true,text:'Priority Score',color:'#9aa0b0'},ticks:{color:'#6b7280'}},y:{title:{display:true,text:'Revenue Potential',color:'#9aa0b0'},ticks:{color:'#6b7280',callback:v=>fmtCur(v)}}}}});
+  charts.scatter=new Chart(document.getElementById('chScatter'),{type:'scatter',data:{datasets:[{data:scatterData,backgroundColor:top50.map(o=>o.sr==='hot'?'#EF4444':o.sr==='warm'?'#F59E0B':'#79E2FF'),pointRadius:6}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>`${scatterData[ctx.dataIndex].label}: PS=${ctx.parsed.x}, RP=${fmtCur(ctx.parsed.y)}`}}},scales:{x:{title:{display:true,text:'Priority Score',color:'#8fa8b4'},ticks:{color:'#5d7a86'}},y:{title:{display:true,text:'Revenue Potential',color:'#8fa8b4'},ticks:{color:'#5d7a86',callback:v=>fmtCur(v)}}}}});
 }
 
 /* ===== OPPORTUNITIES TAB ===== */
@@ -678,7 +686,7 @@ function renderPerf(){
   charts.country=new Chart(document.getElementById('chCountry'),{type:'bar',data:{labels:sortedCountries.map(c=>c[0]),datasets:[
     {label:'Ticketing',data:sortedCountries.map(c=>c[1].tick),backgroundColor:'rgba(59,130,246,0.7)',borderRadius:4},
     {label:'Marketing',data:sortedCountries.map(c=>c[1].mkt),backgroundColor:'rgba(16,185,129,0.7)',borderRadius:4}
-  ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#9aa0b0'}}},scales:{x:{ticks:{color:'#6b7280',maxRotation:45}},y:{ticks:{color:'#6b7280',callback:v=>fmtCur(v)}}}}});
+  ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#8fa8b4'}}},scales:{x:{ticks:{color:'#5d7a86',maxRotation:45}},y:{ticks:{color:'#5d7a86',callback:v=>fmtCur(v)}}}}});
 
   // Tier chart
   const tierLabels=Object.keys(byTier).sort();
@@ -686,16 +694,16 @@ function renderPerf(){
     {label:'Ticketing',data:tierLabels.map(t=>byTier[t].tick),backgroundColor:'rgba(59,130,246,0.7)',borderRadius:4},
     {label:'Marketing',data:tierLabels.map(t=>byTier[t].mkt),backgroundColor:'rgba(16,185,129,0.7)',borderRadius:4},
     {label:'Potential',data:tierLabels.map(t=>byTier[t].rp),backgroundColor:'rgba(139,92,246,0.4)',borderRadius:4}
-  ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#9aa0b0'}}},scales:{x:{ticks:{color:'#6b7280'}},y:{ticks:{color:'#6b7280',callback:v=>fmtCur(v)}}}}});
+  ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#8fa8b4'}}},scales:{x:{ticks:{color:'#5d7a86'}},y:{ticks:{color:'#5d7a86',callback:v=>fmtCur(v)}}}}});
 
   // Share distribution histogram
   const shareBuckets={'0%':0,'0-1%':0,'1-3%':0,'3-5%':0,'5-10%':0,'10%+':0};
   ORGS.forEach(o=>{const s=o.ts;if(s===0)shareBuckets['0%']++;else if(s<1)shareBuckets['0-1%']++;else if(s<3)shareBuckets['1-3%']++;else if(s<5)shareBuckets['3-5%']++;else if(s<10)shareBuckets['5-10%']++;else shareBuckets['10%+']++;});
-  charts.shareDist=new Chart(document.getElementById('chShareDist'),{type:'bar',data:{labels:Object.keys(shareBuckets),datasets:[{data:Object.values(shareBuckets),backgroundColor:['#6b7280','#EF4444','#F59E0B','#3B82F6','#10B981','#8B5CF6'],borderRadius:6}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#6b7280'}},y:{ticks:{color:'#6b7280'}}}}}); 
+  charts.shareDist=new Chart(document.getElementById('chShareDist'),{type:'bar',data:{labels:Object.keys(shareBuckets),datasets:[{data:Object.values(shareBuckets),backgroundColor:['#6b7280','#EF4444','#F59E0B','#79E2FF','#C7F88A','#8B5CF6'],borderRadius:6}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#5d7a86'}},y:{ticks:{color:'#5d7a86'}}}}}); 
 
   // Priority vs Risk scatter
   const sample=ORGS.filter(o=>o.ps>30||o.rs>30);
-  charts.heat=new Chart(document.getElementById('chHeat'),{type:'scatter',data:{datasets:[{data:sample.map(o=>({x:o.ps,y:o.rs})),backgroundColor:sample.map(o=>o.sr==='hot'?'rgba(239,68,68,0.7)':o.sr==='warm'?'rgba(245,158,11,0.7)':'rgba(59,130,246,0.4)'),pointRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>{const o=sample[ctx.dataIndex];return`${o.organizer}: PS=${o.ps}, RS=${o.rs}`;}}}},scales:{x:{title:{display:true,text:'Priority Score →',color:'#9aa0b0'},ticks:{color:'#6b7280'}},y:{title:{display:true,text:'Risk Score →',color:'#9aa0b0'},ticks:{color:'#6b7280'}}}}}); 
+  charts.heat=new Chart(document.getElementById('chHeat'),{type:'scatter',data:{datasets:[{data:sample.map(o=>({x:o.ps,y:o.rs})),backgroundColor:sample.map(o=>o.sr==='hot'?'rgba(239,68,68,0.7)':o.sr==='warm'?'rgba(245,158,11,0.7)':'rgba(59,130,246,0.4)'),pointRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>{const o=sample[ctx.dataIndex];return`${o.organizer}: PS=${o.ps}, RS=${o.rs}`;}}}},scales:{x:{title:{display:true,text:'Priority Score →',color:'#8fa8b4'},ticks:{color:'#5d7a86'}},y:{title:{display:true,text:'Risk Score →',color:'#8fa8b4'},ticks:{color:'#5d7a86'}}}}}); 
 
   // Alert cards
   const alerts=ORGS.filter(o=>o.rs>60||o.gt==='decelerating').sort((a,b)=>b.rs-a.rs).slice(0,12);
