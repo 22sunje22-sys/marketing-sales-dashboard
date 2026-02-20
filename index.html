@@ -289,12 +289,12 @@ async function loadData(){
     let allEvts=[];let from=0;
     while(true){const{data}=await sb.from('dashboard_events').select('*').range(from,from+999);if(!data||data.length===0)break;allEvts=allEvts.concat(data);from+=1000;}
     // Map event_id -> id for compatibility
-    RAW_EVENTS=allEvts.map(r=>{org:r.org,name:r.name,country:r.country,type:r.type,id:r.event_id,date:r.date,year:r.year,rev:r.rev,mkt:r.mkt,share:r.share});
+    RAW_EVENTS=allEvts.map(r=>({org:r.org,name:r.name,country:r.country,type:r.type,id:r.event_id,date:r.date,year:r.year,rev:r.rev,mkt:r.mkt,share:r.share}));
     dataLoaded=true;
   }
 }
 const PWD='salesdash';
-const USERS={alex:{name:'Alex',filter:null},taha:{name:'Taha',filter:null},kamila:{name:'Kamila',filter:'United Arab Emirates',mode:'only'},mohammed:{name:'Mohammed',filter:'United Arab Emirates',mode:'exclude'};
+const USERS={alex:{name:'Alex',filter:null},taha:{name:'Taha',filter:null},kamila:{name:'Kamila',filter:'United Arab Emirates',mode:'only'},mohammed:{name:'Mohammed',filter:'United Arab Emirates',mode:'exclude'}};
 
 let curUser=null, ORGS=[], EVENTS=[], charts={};
 let orgAssign={}, evtAssign={};
