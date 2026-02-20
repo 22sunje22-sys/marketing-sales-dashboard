@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Platinumlist — Paid Marketing Intelligence v2.7</title>
+<title>Platinumlist — Paid Marketing Intelligence v2.8</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -301,6 +301,19 @@ tr:hover td { background:var(--surface2); }
 .kpi-spark-bar { width:6px; border-radius:2px 2px 0 0; background:var(--pl-monday); opacity:0.6; transition:opacity 0.2s; }
 .kpi:hover .kpi-spark-bar { opacity:1; }
 
+/* v2.8 — NOTE MODAL */
+.note-modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:1000; display:flex; align-items:center; justify-content:center; padding:20px; backdrop-filter:blur(4px); }
+.note-modal { background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:24px; width:100%; max-width:420px; }
+.note-modal h3 { font-size:16px; margin-bottom:4px; }
+.note-modal .nm-org { color:var(--pl-monday); font-size:13px; margin-bottom:16px; }
+.note-modal textarea { width:100%; min-height:100px; padding:12px; border-radius:8px; border:1px solid var(--border); background:var(--surface2); color:var(--text); font-size:14px; font-family:inherit; resize:vertical; outline:none; }
+.note-modal textarea:focus { border-color:var(--pl-monday); }
+.note-modal .nm-btns { display:flex; justify-content:flex-end; gap:8px; margin-top:12px; }
+.note-modal .nm-btn { padding:8px 20px; border-radius:8px; font-size:13px; font-weight:600; cursor:pointer; border:1px solid var(--border); }
+.note-modal .nm-save { background:var(--pl-suede); color:#fff; border-color:var(--pl-suede); }
+.note-modal .nm-save:hover { background:var(--pl-monday); color:var(--pl-storm); }
+.note-modal .nm-cancel { background:transparent; color:var(--text2); }
+
 /* v2.7 — SAVED VIEWS */
 .saved-views { display:flex; gap:6px; margin-bottom:10px; flex-wrap:wrap; }
 .sv-btn { padding:5px 12px; border-radius:16px; font-size:11px; border:1px dashed var(--border); background:transparent; color:var(--text2); cursor:pointer; transition:all 0.2s; }
@@ -315,7 +328,7 @@ tr:hover td { background:var(--surface2); }
 <div class="login-box">
 <div style="margin-bottom:16px;font-size:28px;font-weight:800;letter-spacing:-0.5px;color:var(--pl-monday);">Platinumlist</div>
 <h1 style="font-size:18px;font-weight:600;">Paid Marketing Intelligence</h1>
-<p>v2.7 — for Organisers</p>
+<p>v2.8 — for Organisers</p>
 <select id="userSel">
 <option value="">Select user...</option>
 <option value="alex">Alex (All regions)</option>
@@ -432,7 +445,9 @@ const fmtCur=n=>{if(n==null)return'-';if(Math.abs(n)>=1e9)return'AED '+(n/1e9).t
 async function doLogin(){
   const u=document.getElementById('userSel').value;
   const p=document.getElementById('pwdInput').value;
-  if(!u||p!==PWD){document.getElementById('loginErr').style.display='block';return;}
+  const errEl=document.getElementById('loginErr');
+  if(!u){errEl.textContent='Please select a user';errEl.style.display='block';return;}
+  if(p!==PWD){errEl.textContent='Invalid password';errEl.style.display='block';return;}
   const btn=document.querySelector('.login-box button');
   btn.textContent='Loading data...';btn.disabled=true;
   if(!dataLoaded)await loadData();
@@ -454,7 +469,15 @@ function doLogout(){
   document.getElementById('app').style.display='none';
   document.getElementById('loginWrap').style.display='flex';
   document.getElementById('pwdInput').value='';
+  document.getElementById('userSel').value='';
+  document.getElementById('loginErr').style.display='none';
   Object.values(charts).forEach(c=>{if(c&&c.destroy)c.destroy();});charts={};
+  // Reset filter state on logout
+  oppView='all';oppPage=0;oppFilters={country:'',tier:'',stage:'',type:'',search:'',tag:''};
+  bulkSelected.clear();
+  try{localStorage.removeItem('plDashFilters');}catch(e){}
+  history.replaceState(null,'',location.pathname);
+  curUser=null;
 }
 
 function initData(){
@@ -590,9 +613,9 @@ function renderOverview(){
   const tickByYear=years.map(y=>ORGS.reduce((s,o)=>s+(o['t'+(y-2000)]||0),0));
   const mktByYear=years.map(y=>ORGS.reduce((s,o)=>s+(o['m'+(y-2000)]||0),0));
   charts.revTrend=new Chart(document.getElementById('chRevTrend'),{type:'bar',data:{labels:years,datasets:[
-    {label:'Ticketing',data:tickByYear,backgroundColor:'rgba(59,130,246,0.7)',borderRadius:4},
-    {label:'Marketing',data:mktByYear,backgroundColor:'rgba(16,185,129,0.7)',borderRadius:4}
-  ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#8fa8b4'}}},scales:{x:{ticks:{color:'#5d7a86'}},y:{ticks:{color:'#5d7a86',callback:v=>fmtCur(v)}}}}});
+    {label:'Ticketing',data:tickByYear,backgroundColor:'rgba(59,130,246,0.7)',borderRadius:4,yAxisID:'y'},
+    {label:'Marketing',data:mktByYear,backgroundColor:'rgba(16,185,129,0.7)',borderRadius:4,yAxisID:'y1'}
+  ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#8fa8b4'}}},scales:{x:{ticks:{color:'#5d7a86'}},y:{position:'left',title:{display:true,text:'Ticketing',color:'#5d7a86'},ticks:{color:'#5d7a86',callback:v=>fmtCur(v)}},y1:{position:'right',title:{display:true,text:'Marketing',color:'#10b981'},ticks:{color:'#10b981',callback:v=>fmtCur(v)},grid:{drawOnChartArea:false}}}}});
 
   // Readiness donut
   const readCounts={};ORGS.forEach(o=>{readCounts[o.sr]=(readCounts[o.sr]||0)+1;});
@@ -727,7 +750,7 @@ function renderOpps(){
     <input placeholder="Search organisers..." oninput="oppFilters.search=this.value.toLowerCase();oppPage=0;sess.searches++;renderOppCards()" onchange="logAction('search',this.value,'opportunities')">
     <button class="btn-export" onclick="sess.exports++;logAction('export','csv_filtered','opportunities');exportCSV()">📥 Export CSV</button>
   </div>
-  <div class="chips">${Object.entries(TAG_META).filter(([k])=>tagCounts[k]).map(([k,v])=>`<div class="chip ${oppFilters.tag===k?'active':''}" onclick="oppFilters.tag=oppFilters.tag==='${k}'?'':'${k}';oppPage=0;logAction('filter_tag','${k}','opportunities');renderOppCards();this.classList.toggle('active')">${v.i} ${v.l} <span class="cnt">${tagCounts[k]||0}</span></div>`).join('')}</div>
+  <div class="chips">${Object.entries(TAG_META).filter(([k])=>tagCounts[k]).map(([k,v])=>`<div class="chip ${oppFilters.tag===k?'active':''}" data-tag="${k}" onclick="oppFilters.tag=oppFilters.tag==='${k}'?'':'${k}';oppPage=0;logAction('filter_tag','${k}','opportunities');renderOppCards()">${v.i} ${v.l} <span class="cnt">${tagCounts[k]||0}</span></div>`).join('')}</div>
   <div id="oppCards"></div>
   <div class="pag" id="oppPag"></div>`;
 
@@ -800,7 +823,7 @@ function renderOppCards(){
         <span class="action-text" style="color:${actionColor(o.nba)}">${o.nba}</span>
         <div class="card-act-btns">
           ${ORG_ACTIONS_SET.has(o.organizer)?`<span class="act-done">✅</span>`:`<button class="act-btn" onclick="event.stopPropagation();actBtnClick(this,'${o.organizer.replace(/'/g,"\\'")}')">Worked on it</button>`}
-          <button class="act-btn act-btn-sm" onclick="event.stopPropagation();const n=prompt('Add note for ${o.organizer.replace(/'/g,"\\'")}:');if(n)logOrgAction('${o.organizer.replace(/'/g,"\\'")}','note',n)">📝</button>
+          <button class="act-btn act-btn-sm" onclick="event.stopPropagation();showNoteModal('${o.organizer.replace(/'/g,"\\'")}')">📝</button>
         </div>
       </div>
       ${o.tags.length?`<div class="card-tags">${o.tags.map(t=>`<span class="tag-sm">${t}</span>`).join('')}</div>`:''}
@@ -818,6 +841,49 @@ function renderOppCards(){
   }
   pagHtml+=`<button class="pag-btn" ${oppPage>=totalPages-1?'disabled':''} onclick="oppPage++;renderOppCards()">Next →</button></div>`;
   document.getElementById('oppPag').innerHTML=pagHtml;
+
+  // v2.8 — Update view chip counts based on CURRENT dropdown filters
+  updateViewChipCounts();
+  // v2.8 — Sync chip active states
+  document.querySelectorAll('.chips .chip').forEach(el=>{
+    const tag=el.getAttribute('data-tag');
+    if(tag)el.classList.toggle('active',oppFilters.tag===tag);
+  });
+}
+
+function updateViewChipCounts(){
+  // Base list = filtered by dropdowns only (not view chips)
+  let base=ORGS;
+  if(oppFilters.country)base=base.filter(o=>o.country===oppFilters.country);
+  if(oppFilters.tier)base=base.filter(o=>o.tier===oppFilters.tier);
+  if(oppFilters.stage)base=base.filter(o=>o.stage===oppFilters.stage);
+  if(oppFilters.type)base=base.filter(o=>o.type===oppFilters.type);
+  if(oppFilters.search)base=base.filter(o=>o.organizer.toLowerCase().includes(oppFilters.search));
+  if(oppFilters.tag)base=base.filter(o=>o.tags.includes(oppFilters.tag));
+  const counts={
+    all:base.length,
+    hot:base.filter(o=>o.sr==='hot').length,
+    warm:base.filter(o=>o.sr==='warm').length,
+    growth:base.filter(o=>o.gt==='accelerating').length,
+    risk:base.filter(o=>o.rs>60).length,
+    no_actions:base.filter(o=>!ORG_ACTIONS_SET.has(o.organizer)).length,
+    acted:base.filter(o=>ORG_ACTIONS_SET.has(o.organizer)).length
+  };
+  const chipMap={
+    'all':`All (${counts.all})`,
+    'hot':`🔥 Hot (${counts.hot})`,
+    'warm':`🟡 Warm (${counts.warm})`,
+    'growth':`🚀 Growing (${counts.growth})`,
+    'risk':`⚠️ At Risk (${counts.risk})`,
+    'no_actions':`🆕 Without Actions (${counts.no_actions})`,
+    'acted':`✅ Worked On (${counts.acted})`
+  };
+  document.querySelectorAll('.view-chips .view-chip').forEach(el=>{
+    const onc=el.getAttribute('onclick')||'';
+    for(const [key,label] of Object.entries(chipMap)){
+      if(onc.includes(`oppView='${key}'`)){el.textContent=label;break;}
+    }
+  });
 }
 
 /* ===== PERFORMANCE TAB ===== */
@@ -1110,6 +1176,7 @@ function toggleAch(){
   ov.classList.toggle('open');
   if(ov.classList.contains('open'))renderAchPanel();
 }
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){const ov=document.getElementById('achOverlay');if(ov&&ov.classList.contains('open'))toggleAch();const modal=document.querySelector('.org-modal-overlay');if(modal)modal.remove();}});
 
 function renderAchPanel(){
   const grid=document.getElementById('achGrid');
@@ -1232,6 +1299,10 @@ function renderOrgTable(){
     {k:'t25',l:'Tick 25'},{k:'m25',l:'Mkt 25'},{k:'s25',l:'Share 25'},
     {k:'_assign',l:'Assign'}
   ];
+  // v2.8 — Update header count to reflect search results
+  const headerEl=document.querySelector('#pane-organisers h3');
+  if(headerEl)headerEl.textContent=`📊 Organisers (${total}${orgListSearch?' of '+ORGS.length:''})`;
+
   let html=`<table><thead><tr>${cols.map(c=>c.k==='_assign'?`<th>Assign</th>`:`<th onclick="orgListSort={col:'${c.k}',asc:orgListSort.col==='${c.k}'?!orgListSort.asc:false};renderOrgTable()">${c.l}${orgListSort.col===c.k?(orgListSort.asc?' ↑':' ↓'):''}</th>`).join('')}</tr></thead><tbody>`;
   page.forEach(o=>{
     const assignee=orgAssign[o.organizer];
@@ -1426,6 +1497,34 @@ function makeSparkline(values){
   if(!values||values.length===0)return'';
   const max=Math.max(...values,1);
   return`<div class="kpi-spark">${values.map(v=>`<div class="kpi-spark-bar" style="height:${Math.max(2,Math.round(v/max*22))}px"></div>`).join('')}</div>`;
+}
+
+/* ===== v2.8 NOTE MODAL ===== */
+function showNoteModal(org){
+  const overlay=document.createElement('div');
+  overlay.className='note-modal-overlay';
+  overlay.onclick=e=>{if(e.target===overlay)overlay.remove();};
+  overlay.innerHTML=`<div class="note-modal">
+    <h3>📝 Add Note</h3>
+    <div class="nm-org">${org}</div>
+    <textarea id="noteInput" placeholder="Type your note here..." autofocus></textarea>
+    <div class="nm-btns">
+      <button class="nm-btn nm-cancel" onclick="this.closest('.note-modal-overlay').remove()">Cancel</button>
+      <button class="nm-btn nm-save" onclick="submitNote('${org.replace(/'/g,"\\'")}')">Save Note</button>
+    </div>
+  </div>`;
+  document.body.appendChild(overlay);
+  setTimeout(()=>{const ta=document.getElementById('noteInput');if(ta)ta.focus();},50);
+  // Escape closes
+  overlay.addEventListener('keydown',e=>{if(e.key==='Escape')overlay.remove();});
+}
+async function submitNote(org){
+  const ta=document.getElementById('noteInput');
+  const note=ta?ta.value.trim():'';
+  if(!note)return;
+  const overlay=ta.closest('.note-modal-overlay');
+  await logOrgAction(org,'note',note);
+  if(overlay)overlay.remove();
 }
 </script>
 </body>
