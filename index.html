@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Platinumlist — Paid Marketing Intelligence v2.5</title>
+<title>Platinumlist — Paid Marketing Intelligence v2.6</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -155,6 +155,23 @@ tr:hover td { background:var(--surface2); }
 .seg-click { cursor:pointer; padding:6px 4px; border-radius:4px; transition:background 0.2s; }
 .seg-click:hover { background:var(--surface3); }
 
+/* ORG DETAIL MODAL */
+.org-modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:1000; display:flex; align-items:center; justify-content:center; padding:20px; backdrop-filter:blur(4px); }
+.org-modal { background:var(--surface); border:1px solid var(--border); border-radius:16px; width:100%; max-width:900px; max-height:85vh; overflow:hidden; display:flex; flex-direction:column; }
+.org-modal-head { padding:20px 24px 16px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:flex-start; flex-shrink:0; }
+.org-modal-head h2 { font-size:18px; font-weight:700; }
+.org-modal-close { background:none; border:none; color:var(--text3); font-size:24px; cursor:pointer; padding:0 4px; line-height:1; }
+.org-modal-close:hover { color:var(--text); }
+.org-modal-body { padding:16px 24px 20px; overflow-y:auto; flex:1; }
+.org-evt-table { width:100%; border-collapse:collapse; font-size:13px; }
+.org-evt-table th { text-align:left; padding:8px 10px; color:var(--text3); font-size:11px; text-transform:uppercase; letter-spacing:0.5px; border-bottom:1px solid var(--border); position:sticky; top:0; background:var(--surface); }
+.org-evt-table td { padding:8px 10px; border-bottom:1px solid var(--border); }
+.org-evt-table tr:hover td { background:var(--surface2); }
+.org-evt-table .evt-id { color:var(--accent); font-weight:600; }
+.org-evt-table .evt-rev { color:var(--green); font-weight:600; }
+.org-evt-table .evt-mkt { color:var(--pl-monday); font-weight:600; }
+.org-evt-count { color:var(--text2); font-size:13px; margin-left:8px; font-weight:400; }
+
 /* EXPORT BTN */
 .btn-export { padding:8px 16px; border-radius:8px; border:1px solid var(--border); background:var(--surface); color:var(--text); font-size:13px; cursor:pointer; white-space:nowrap; }
 .btn-export:hover { background:var(--surface2); }
@@ -255,7 +272,7 @@ tr:hover td { background:var(--surface2); }
 <div class="login-box">
 <div style="margin-bottom:16px;font-size:28px;font-weight:800;letter-spacing:-0.5px;color:var(--pl-monday);">Platinumlist</div>
 <h1 style="font-size:18px;font-weight:600;">Paid Marketing Intelligence</h1>
-<p>v2.5 — for Organisers</p>
+<p>v2.6 — for Organisers</p>
 <select id="userSel">
 <option value="">Select user...</option>
 <option value="alex">Alex (All regions)</option>
@@ -430,6 +447,42 @@ function drillDown(view,searchTerm){
   oppView=view||'all';oppPage=0;oppFilters={country:'',tier:'',stage:'',type:'',search:searchTerm||'',tag:''};
   switchTab('opportunities');
 }
+function showOrgEvents(orgName){
+  const orgEvts=EVENTS.filter(e=>e.org===orgName).sort((a,b)=>(b.id||0)-(a.id||0));
+  const org=ORGS.find(o=>o.organizer===orgName);
+  const overlay=document.createElement('div');
+  overlay.className='org-modal-overlay';
+  overlay.onclick=e=>{if(e.target===overlay)overlay.remove();};
+  let evtRows='';
+  if(orgEvts.length===0){
+    evtRows='<tr><td colspan="7" style="text-align:center;padding:24px;color:var(--text3)">No events found for this organiser</td></tr>';
+  } else {
+    evtRows=orgEvts.map(e=>`<tr>
+      <td class="evt-id">${e.id||'—'}</td>
+      <td>${e.name||'—'}</td>
+      <td>${e.date||'—'}</td>
+      <td>${e.type||'—'}</td>
+      <td>${e.country||'—'}</td>
+      <td class="evt-rev">${fmtCur(e.rev||0)}</td>
+      <td class="evt-mkt">${fmtCur(e.mkt||0)}</td>
+      <td>${e.share!=null?(e.share*100).toFixed(1)+'%':'—'}</td>
+    </tr>`).join('');
+  }
+  overlay.innerHTML=`<div class="org-modal">
+    <div class="org-modal-head">
+      <div><h2>${orgName}<span class="org-evt-count">${orgEvts.length} events</span></h2>
+      ${org?`<div style="margin-top:6px;font-size:12px;color:var(--text2)">${org.country} · ${org.tier} · ${org.lc} · Mkt Potential: <b style="color:var(--green)">${fmtCur(org.rp)}</b></div>`:''}</div>
+      <button class="org-modal-close" onclick="this.closest('.org-modal-overlay').remove()">✕</button>
+    </div>
+    <div class="org-modal-body">
+      <table class="org-evt-table">
+        <thead><tr><th>Event ID</th><th>Event Name</th><th>Date</th><th>Type</th><th>Country</th><th>Ticketing</th><th>Marketing</th><th>Share</th></tr></thead>
+        <tbody>${evtRows}</tbody>
+      </table>
+    </div>
+  </div>`;
+  document.body.appendChild(overlay);
+}
 
 /* ===== OVERVIEW TAB ===== */
 function renderOverview(){
@@ -457,7 +510,7 @@ function renderOverview(){
   <div class="kpi-row">
     <div class="kpi"><div class="kpi-label">Total Ticketing Revenue</div><div class="kpi-val">${fmtCur(totalTick)}</div><div class="kpi-sub">${ORGS.length} organisers</div></div>
     <div class="kpi"><div class="kpi-label">Total Mkt Revenue</div><div class="kpi-val">${fmtCur(totalMkt)}</div><div class="kpi-sub">${avgShare.toFixed(1)}% avg share</div></div>
-    <div class="kpi"><div class="kpi-label">Revenue Potential</div><div class="kpi-val" style="color:var(--green)">${fmtCur(totalRP)}</div><div class="kpi-sub">Uplift if at benchmark</div></div>
+    <div class="kpi"><div class="kpi-label">Mkt Revenue Potential</div><div class="kpi-val" style="color:var(--green)">${fmtCur(totalRP)}</div><div class="kpi-sub">Mkt uplift if at benchmark</div></div>
     <div class="kpi kpi-click" onclick="drillDown('hot')" title="View Hot prospects"><div class="kpi-label">🔥 Hot Prospects</div><div class="kpi-val" style="color:var(--red)">${hotCount}</div><div class="kpi-sub">${warmCount} warm leads</div></div>
     <div class="kpi kpi-click" onclick="drillDown('risk')" title="View At Risk orgs"><div class="kpi-label">⚠️ At Risk</div><div class="kpi-val" style="color:var(--amber)">${atRisk}</div><div class="kpi-sub">Need attention</div></div>
     <div class="kpi kpi-click" onclick="drillDown('growth')" title="View Growing orgs"><div class="kpi-label">🚀 Growing</div><div class="kpi-val" style="color:var(--green)">${growing}</div><div class="kpi-sub">Accelerating orgs</div></div>
@@ -470,7 +523,7 @@ function renderOverview(){
         const detail=o.nba.split('—').slice(1).join('—').trim();
         const icon=aqIcons[action]||'⚡';
         const cls=o.sr==='hot'?'aq-hot':o.rs>60?'aq-warm':'aq-growth';
-        return`<div class="aq-item ${cls}" onclick="drillDown('all','${o.organizer.replace(/'/g,"\\'")}')" title="Click to view in Opportunities"><div class="aq-icon">${icon}</div><div class="aq-body"><div class="aq-org">${o.organizer}</div><div class="aq-detail">${action}: ${detail} · ${o.country} · ${o.tier}</div></div><div class="aq-metric"><div class="aq-val" style="color:var(--green)">${fmtCur(o.rp)}</div><div class="aq-label">potential</div></div></div>`;
+        return`<div class="aq-item ${cls}" onclick="drillDown('all','${o.organizer.replace(/'/g,"\\'")}')" title="Click to view in Opportunities"><div class="aq-icon">${icon}</div><div class="aq-body"><div class="aq-org">${o.organizer}</div><div class="aq-detail">${action}: ${detail} · ${o.country} · ${o.tier}</div></div><div class="aq-metric"><div class="aq-val" style="color:var(--green)">${fmtCur(o.rp)}</div><div class="aq-label">mkt potential</div></div></div>`;
       }).join('')}
     </div>
   </div>
@@ -482,7 +535,7 @@ function renderOverview(){
   </div>
   <div class="seg-grid">
     <div class="seg-card"><h3>Top 5 by Priority Score</h3><div id="segTop5PS"></div></div>
-    <div class="seg-card"><h3>Top 5 Revenue Potential</h3><div id="segTop5RP"></div></div>
+    <div class="seg-card"><h3>Top 5 Mkt Revenue Potential</h3><div id="segTop5RP"></div></div>
     <div class="seg-card"><h3>Biggest Declines (YoY)</h3><div id="segDeclines"></div></div>
     <div class="seg-card"><h3>Fastest Growing</h3><div id="segGrowing"></div></div>
   </div>`;
@@ -539,7 +592,7 @@ function renderPipeline(){
   stages.forEach(s=>{
     const list=ORGS.filter(o=>o.lc===s);
     const rp=list.reduce((sum,o)=>sum+(o.rp||0),0);
-    html+=`<div class="kpi kpi-click" onclick="drillDown('lc_${s}')" title="View ${s} orgs in Opportunities"><div class="kpi-label">${stageLabels[s]||s}</div><div class="kpi-val" style="color:${stageColors[s]}">${list.length}</div><div class="kpi-sub">${fmtCur(rp)} potential</div></div>`;
+    html+=`<div class="kpi kpi-click" onclick="drillDown('lc_${s}')" title="View ${s} orgs in Opportunities"><div class="kpi-label">${stageLabels[s]||s}</div><div class="kpi-val" style="color:${stageColors[s]}">${list.length}</div><div class="kpi-sub">${fmtCur(rp)} mkt potential</div></div>`;
   });
   html+='</div>';
 
@@ -652,7 +705,7 @@ function renderOppCards(){
 
   let html='<div class="cards">';
   page.forEach(o=>{
-    html+=`<div class="card">
+    html+=`<div class="card" style="cursor:pointer" onclick="showOrgEvents('${o.organizer.replace(/'/g,"\\'")}')">
       <div class="card-head">
         <div class="card-name">${o.organizer}</div>
         <div class="card-badges">
@@ -669,7 +722,7 @@ function renderOppCards(){
       </div>
       <div class="card-metrics">
         <div class="cm"><div class="cm-label">Priority</div><div class="cm-val" style="color:${o.ps>=70?'var(--green)':o.ps>=50?'var(--amber)':'var(--text2)'}">${o.ps}</div><div class="cm-sub">/ 100</div></div>
-        <div class="cm"><div class="cm-label">Rev Potential</div><div class="cm-val" style="color:var(--green)">${fmtCur(o.rp)}</div><div class="cm-sub">12M uplift</div></div>
+        <div class="cm"><div class="cm-label">Mkt Potential</div><div class="cm-val" style="color:var(--green)">${fmtCur(o.rp)}</div><div class="cm-sub">12M mkt uplift</div></div>
         <div class="cm"><div class="cm-label">Risk</div><div class="cm-val" style="color:${o.rs>70?'var(--red)':o.rs>40?'var(--amber)':'var(--green)'}">${o.rs}</div><div class="cm-sub">/ 100</div></div>
         <div class="cm"><div class="cm-label">Ticketing</div><div class="cm-val">${fmtCur(o.tt)}</div><div class="cm-sub">YoY ${fmtPct(o.tyoy25)}</div></div>
         <div class="cm"><div class="cm-label">Marketing</div><div class="cm-val">${fmtCur(o.tm)}</div><div class="cm-sub">YoY ${fmtPct(o.myoy25)}</div></div>
