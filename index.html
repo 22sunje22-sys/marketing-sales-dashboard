@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Platinumlist — Paid Marketing Intelligence v2.3</title>
+<title>Platinumlist — Paid Marketing Intelligence v2.4</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -227,6 +227,17 @@ tr:hover td { background:var(--surface2); }
 .toast-text { font-size:13px; }
 .toast-title { font-weight:600; color:var(--amber); }
 
+/* ACTION BUTTONS ON CARDS */
+.card-act-btns { display:flex; gap:4px; align-items:center; }
+.act-btn { padding:4px 12px; border-radius:6px; border:1px solid var(--pl-suede); background:transparent; color:var(--pl-monday); font-size:11px; font-weight:600; cursor:pointer; transition:all 0.2s; white-space:nowrap; }
+.act-btn:hover { background:var(--pl-suede); color:#fff; }
+.act-btn-sm { padding:4px 6px; }
+.act-done { font-size:14px; }
+.vc-noact { background:var(--blue-bg); color:var(--pl-monday); }
+.vc-noact.active { background:var(--pl-monday); color:var(--pl-storm); }
+.vc-acted { background:var(--green-bg); color:var(--green); }
+.vc-acted.active { background:var(--green); color:var(--pl-storm); }
+
 /* ACTIVITY LOG TAB */
 .log-table { width:100%; font-size:12px; }
 .log-table th { padding:8px; text-align:left; color:var(--text2); border-bottom:1px solid var(--border); }
@@ -240,7 +251,7 @@ tr:hover td { background:var(--surface2); }
 <div class="login-box">
 <div style="margin-bottom:16px;font-size:28px;font-weight:800;letter-spacing:-0.5px;color:var(--pl-monday);">Platinumlist</div>
 <h1 style="font-size:18px;font-weight:600;">Paid Marketing Intelligence</h1>
-<p>v2.3 — for Organisers</p>
+<p>v2.4 — for Organisers</p>
 <select id="userSel">
 <option value="">Select user...</option>
 <option value="alex">Alex (All regions)</option>
@@ -331,6 +342,20 @@ const USERS={alex:{name:'Alex',filter:null},taha:{name:'Taha',filter:null},kamil
 
 let curUser=null, ORGS=[], EVENTS=[], charts={};
 let orgAssign={}, evtAssign={};
+let ORG_ACTIONS=[], ORG_ACTIONS_SET=new Set();
+async function loadActions(){
+  try{
+    const res=await fetch(window.location.origin+'/api/actions');
+    if(res.ok){ORG_ACTIONS=await res.json();ORG_ACTIONS_SET=new Set(ORG_ACTIONS.map(a=>a.org));}
+  }catch(e){console.warn('Actions load failed',e);}
+}
+async function logOrgAction(org,action,note){
+  if(!curUser)return;
+  try{
+    const res=await fetch(window.location.origin+'/api/actions',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({org,action:action||'worked_on',user_name:curUser.name,note:note||null})});
+    if(res.ok){const a=await res.json();ORG_ACTIONS.unshift(a);ORG_ACTIONS_SET.add(org);renderOppCards();showToast('✅','Logged',`"${action||'Worked on it'}" for ${org}`);}
+  }catch(e){console.error('Action log failed',e);}
+}
 let orgListPage=0, orgListSort={col:'ps',asc:false}, orgListSearch='';
 let evtListPage=0, evtListSort={col:'rev',asc:false}, evtListSearch='';
 
@@ -347,6 +372,7 @@ async function doLogin(){
   const btn=document.querySelector('.login-box button');
   btn.textContent='Loading data...';btn.disabled=true;
   if(!dataLoaded)await loadData();
+  await loadActions();
   btn.textContent='Sign In';btn.disabled=false;
   if(!dataLoaded){document.getElementById('loginErr').textContent='Failed to load data';document.getElementById('loginErr').style.display='block';return;}
   curUser=USERS[u];curUser.id=u;
@@ -554,6 +580,8 @@ function renderOpps(){
     <div class="view-chip vc-warm ${oppView==='warm'?'active':''}" onclick="oppView='warm';oppPage=0;logAction('view_filter','warm','opportunities');renderOppCards()">🟡 Warm (${ORGS.filter(o=>o.sr==='warm').length})</div>
     <div class="view-chip vc-growth ${oppView==='growth'?'active':''}" onclick="oppView='growth';oppPage=0;logAction('view_filter','growth','opportunities');renderOppCards()">🚀 Growing (${ORGS.filter(o=>o.gt==='accelerating').length})</div>
     <div class="view-chip vc-risk ${oppView==='risk'?'active':''}" onclick="oppView='risk';oppPage=0;logAction('view_filter','risk','opportunities');renderOppCards()">⚠️ At Risk (${ORGS.filter(o=>o.rs>60).length})</div>
+    <div class="view-chip vc-noact ${oppView==='no_actions'?'active':''}" onclick="oppView='no_actions';oppPage=0;renderOppCards()">🆕 Without Actions (${ORGS.filter(o=>!ORG_ACTIONS_SET.has(o.organizer)).length})</div>
+    <div class="view-chip vc-acted ${oppView==='acted'?'active':''}" onclick="oppView='acted';oppPage=0;renderOppCards()">✅ Worked On (${ORGS.filter(o=>ORG_ACTIONS_SET.has(o.organizer)).length})</div>
   </div>
   <div class="filter-bar">
     <select onchange="oppFilters.country=this.value;oppPage=0;sess.filters++;logAction('filter_country',this.value,'opportunities');renderOppCards()"><option value="">All Countries</option>${countries.map(c=>`<option value="${c}">${c}</option>`).join('')}</select>
@@ -577,6 +605,8 @@ function getFilteredOrgs(){
   else if(oppView==='warm')list=list.filter(o=>o.sr==='warm');
   else if(oppView==='growth')list=list.filter(o=>o.gt==='accelerating');
   else if(oppView==='risk')list=list.filter(o=>o.rs>60);
+  else if(oppView==='no_actions')list=list.filter(o=>!ORG_ACTIONS_SET.has(o.organizer));
+  else if(oppView==='acted')list=list.filter(o=>ORG_ACTIONS_SET.has(o.organizer));
 
   if(oppFilters.country)list=list.filter(o=>o.country===oppFilters.country);
   if(oppFilters.tier)list=list.filter(o=>o.tier===oppFilters.tier);
@@ -627,6 +657,10 @@ function renderOppCards(){
       </div>
       <div class="card-action" style="border-left:3px solid ${actionColor(o.nba)}">
         <span class="action-text" style="color:${actionColor(o.nba)}">${o.nba}</span>
+        <div class="card-act-btns">
+          ${ORG_ACTIONS_SET.has(o.organizer)?`<span class="act-done">✅</span>`:`<button class="act-btn" onclick="event.stopPropagation();logOrgAction('${o.organizer.replace(/'/g,"\\'")}','worked_on')">Worked on it</button>`}
+          <button class="act-btn act-btn-sm" onclick="event.stopPropagation();const n=prompt('Add note for ${o.organizer.replace(/'/g,"\\'")}:');if(n)logOrgAction('${o.organizer.replace(/'/g,"\\'")}','note',n)">📝</button>
+        </div>
       </div>
       ${o.tags.length?`<div class="card-tags">${o.tags.map(t=>`<span class="tag-sm">${t}</span>`).join('')}</div>`:''}
     </div>`;
