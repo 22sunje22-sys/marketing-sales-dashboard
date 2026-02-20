@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Platinumlist — Paid Marketing Intelligence v2.8</title>
+<title>Platinumlist — Paid Marketing Intelligence v2.9</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -328,7 +328,7 @@ tr:hover td { background:var(--surface2); }
 <div class="login-box">
 <div style="margin-bottom:16px;font-size:28px;font-weight:800;letter-spacing:-0.5px;color:var(--pl-monday);">Platinumlist</div>
 <h1 style="font-size:18px;font-weight:600;">Paid Marketing Intelligence</h1>
-<p>v2.8 — for Organisers</p>
+<p>v2.9 — for Organisers</p>
 <select id="userSel">
 <option value="">Select user...</option>
 <option value="alex">Alex (All regions)</option>
@@ -457,6 +457,10 @@ async function doLogin(){
   curUser=USERS[u];curUser.id=u;
   sess={tabs:new Set(),filters:0,searches:0,exports:0,orgsViewed:0,loginTime:new Date(),actions:[]};
   userAch=new Set();
+  /* v2.9 — clear stale URL params + filters on fresh login */
+  history.replaceState(null,'',location.pathname);
+  oppView='all';oppPage=0;oppFilters={country:'',tier:'',stage:'',type:'',search:'',tag:''};
+  bulkSelected.clear();try{localStorage.removeItem('plDashFilters');}catch(e){}
   initData();
   document.getElementById('loginWrap').style.display='none';
   document.getElementById('app').style.display='block';
