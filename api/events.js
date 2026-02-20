@@ -12,6 +12,7 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Cache-Control', 's-maxage=300, stale-while-revalidate=600');
 
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
@@ -22,36 +23,35 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Supabase default limit is 1000, we need all ~11300 rows
-    // Fetch in pages of 1000
+    // Fetch all ~11300 events in parallel pages of 5000
+    // Supabase allows up to 50000 rows with explicit limit
+    const pageSize = 5000;
+    const totalEstimate = 12000;
+    const pages = Math.ceil(totalEstimate / pageSize);
+
+    const promises = [];
+    for (let i = 0; i < pages; i++) {
+      promises.push(
+        supabase
+          .from('dashboard_events')
+          .select('org,name,country,type,event_id,date,year,rev,mkt,share')
+          .range(i * pageSize, (i + 1) * pageSize - 1)
+          .order('id', { ascending: true })
+      );
+    }
+
+    const results = await Promise.all(promises);
+
     let allRows = [];
-    let from = 0;
-    const pageSize = 1000;
-    let hasMore = true;
-
-    while (hasMore) {
-      const { data, error } = await supabase
-        .from('dashboard_events')
-        .select('*')
-        .range(from, from + pageSize - 1)
-        .order('id', { ascending: true });
-
+    for (const { data, error } of results) {
       if (error) {
         console.error('Supabase error:', error);
         return res.status(500).json({ error: error.message });
       }
-
-      allRows = allRows.concat(data);
-
-      if (data.length < pageSize) {
-        hasMore = false;
-      } else {
-        from += pageSize;
-      }
+      if (data) allRows = allRows.concat(data);
     }
 
-    // Transform column names to match original JSON keys the build script expects
-    // DB: event_id → JSON: id; DB: rev → JSON: rev; DB: mkt → JSON: mkt; DB: share → JSON: share
+    // Transform column names to match original JSON keys
     const transformed = allRows.map(row => ({
       org: row.org,
       name: row.name,

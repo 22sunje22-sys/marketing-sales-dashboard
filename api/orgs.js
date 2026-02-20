@@ -12,6 +12,7 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Cache-Control', 's-maxage=300, stale-while-revalidate=600');
 
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
@@ -22,56 +23,34 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Supabase default limit is 1000, we need all ~1711 rows
-    // Fetch in pages of 1000
-    let allRows = [];
-    let from = 0;
+    // Fetch all ~1711 organisers in parallel pages of 1000
     const pageSize = 1000;
-    let hasMore = true;
+    const totalEstimate = 2000;
+    const pages = Math.ceil(totalEstimate / pageSize);
 
-    while (hasMore) {
-      const { data, error } = await supabase
-        .from('dashboard_organisers')
-        .select('*')
-        .range(from, from + pageSize - 1)
-        .order('id', { ascending: true });
+    const promises = [];
+    for (let i = 0; i < pages; i++) {
+      promises.push(
+        supabase
+          .from('dashboard_organisers')
+          .select('organizer,country,tier,stage,type,event_ex,t23,t24,t25,t26,m23,m24,m25,m26,s23,s24,s25,s26,tt,tm,ts,tyoy24,myoy24,tyoy25,myoy25,tags,sg,sgp,rp,gt,rs,ps,sr,nba,lc')
+          .range(i * pageSize, (i + 1) * pageSize - 1)
+          .order('id', { ascending: true })
+      );
+    }
 
+    const results = await Promise.all(promises);
+
+    let allRows = [];
+    for (const { data, error } of results) {
       if (error) {
         console.error('Supabase error:', error);
         return res.status(500).json({ error: error.message });
       }
-
-      allRows = allRows.concat(data);
-
-      if (data.length < pageSize) {
-        hasMore = false;
-      } else {
-        from += pageSize;
-      }
+      if (data) allRows = allRows.concat(data);
     }
 
-    // Transform column names back to match the original JSON keys
-    // the build script expects
-    const transformed = allRows.map(row => ({
-      organizer: row.organizer,
-      country: row.country,
-      tier: row.tier,
-      stage: row.stage,
-      type: row.type,
-      event_ex: row.event_ex,
-      t23: row.t23, t24: row.t24, t25: row.t25, t26: row.t26,
-      m23: row.m23, m24: row.m24, m25: row.m25, m26: row.m26,
-      s23: row.s23, s24: row.s24, s25: row.s25, s26: row.s26,
-      tt: row.tt, tm: row.tm, ts: row.ts,
-      tyoy24: row.tyoy24, myoy24: row.myoy24,
-      tyoy25: row.tyoy25, myoy25: row.myoy25,
-      tags: row.tags,
-      sg: row.sg, sgp: row.sgp, rp: row.rp,
-      gt: row.gt, rs: row.rs, ps: row.ps,
-      sr: row.sr, nba: row.nba, lc: row.lc
-    }));
-
-    return res.status(200).json(transformed);
+    return res.status(200).json(allRows);
   } catch (err) {
     console.error('Server error:', err);
     return res.status(500).json({ error: 'Internal server error' });
