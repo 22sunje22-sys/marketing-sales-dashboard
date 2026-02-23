@@ -836,7 +836,7 @@ function renderOpps(){
     <select onchange="oppFilters.stage=this.value;oppPage=0;sess.filters++;logAction('filter_stage',this.value,'opportunities');renderOppCards()"><option value="">All Stages</option>${stages.map(s=>`<option value="${s}">${s}</option>`).join('')}</select>
     <select onchange="oppFilters.type=this.value;oppPage=0;sess.filters++;logAction('filter_type',this.value,'opportunities');renderOppCards()"><option value="">All Types</option>${types.map(t=>`<option value="${t}">${t}</option>`).join('')}</select>
     <input id="oppSearchInput" placeholder="Search organisers..." value="${oppFilters.search||''}" oninput="oppFilters.search=this.value.toLowerCase();oppPage=0;sess.searches++;renderOppCards()" onchange="logAction('search',this.value,'opportunities')">
-    ${oppFilters.search?`<button class="btn-clear-filter" onclick="oppFilters.search='';oppView='all';oppPage=0;renderOpp()" title="Clear search filter">✕ Clear</button>`:''}
+    ${oppFilters.search?`<button class="btn-clear-filter" onclick="oppFilters.search='';oppView='all';oppPage=0;renderOpps()" title="Clear search filter">✕ Clear</button>`:''}
     <button class="btn-export" onclick="sess.exports++;logAction('export','csv_filtered','opportunities');exportCSV()">📥 Export CSV</button>
   </div>
   <div class="chips">${Object.entries(TAG_META).filter(([k])=>tagCounts[k]).map(([k,v])=>`<div class="chip ${oppFilters.tag===k?'active':''}" data-tag="${k}" onclick="oppFilters.tag=oppFilters.tag==='${k}'?'':'${k}';oppPage=0;logAction('filter_tag','${k}','opportunities');renderOppCards()">${v.i} ${v.l} <span class="cnt">${tagCounts[k]||0}</span></div>`).join('')}</div>
