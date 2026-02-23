@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Platinumlist — Paid Marketing Intelligence v3.0</title>
+<title>Platinumlist — Paid Marketing Intelligence v3.1</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -313,6 +313,24 @@ tr:hover td { background:var(--surface2); }
 .note-modal .nm-save { background:var(--pl-suede); color:#fff; border-color:var(--pl-suede); }
 .note-modal .nm-save:hover { background:var(--pl-monday); color:var(--pl-storm); }
 .note-modal .nm-cancel { background:transparent; color:var(--text2); }
+.nm-history { max-height:200px; overflow-y:auto; margin-bottom:12px; padding:10px; background:var(--surface2); border-radius:8px; border:1px solid var(--border); }
+.nm-note-item { padding:6px 0; border-bottom:1px solid rgba(255,255,255,0.05); }
+.nm-note-item:last-child { border-bottom:none; }
+.nm-note-meta { display:block; font-size:11px; color:var(--text3); margin-bottom:2px; }
+.nm-note-text { font-size:13px; color:var(--text); line-height:1.4; }
+
+/* v3.1 EVENT STATUS & ORG NOTES */
+.evt-st-btn { padding:3px 8px; border-radius:6px; font-size:10px; font-weight:600; border:1px solid var(--border); background:var(--surface2); color:var(--text2); cursor:pointer; transition:all 0.2s; white-space:nowrap; }
+.evt-st-btn:hover { border-color:var(--pl-monday); color:var(--text); }
+.evt-st-active { font-weight:700; border-width:2px; }
+.evt-status-cell { display:flex; gap:4px; flex-wrap:wrap; align-items:center; min-width:220px; }
+.evt-link { color:var(--pl-monday); text-decoration:none; font-weight:600; font-size:13px; transition:color 0.2s; }
+.evt-link:hover { color:var(--pl-suede); text-decoration:underline; }
+.org-notes-section { margin-top:12px; padding:12px; background:var(--surface2); border-radius:8px; border:1px solid var(--border); }
+.org-note-row { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; padding:6px 0; border-bottom:1px solid rgba(255,255,255,0.05); font-size:12px; color:var(--text2); line-height:1.4; }
+.org-note-row:last-child { border-bottom:none; }
+.btn-clear-filter { padding:8px 14px; border-radius:8px; border:1px solid var(--red); background:var(--red-bg); color:var(--red); font-size:12px; font-weight:600; cursor:pointer; white-space:nowrap; transition:all 0.2s; }
+.btn-clear-filter:hover { background:var(--red); color:#fff; }
 
 /* v3.0 TASK MODAL */
 .task-modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:1000; display:flex; align-items:center; justify-content:center; padding:20px; backdrop-filter:blur(4px); }
@@ -358,12 +376,12 @@ tr:hover td { background:var(--surface2); }
 <div class="login-box">
 <div style="margin-bottom:16px;font-size:28px;font-weight:800;letter-spacing:-0.5px;color:var(--pl-monday);">Platinumlist</div>
 <h1 style="font-size:18px;font-weight:600;">Paid Marketing Intelligence</h1>
-<p>v3.0 — for Organisers</p>
+<p>v3.1 — for Organisers</p>
 <select id="userSel">
 <option value="">Select user...</option>
 <option value="alex">Alex (All regions)</option>
 <option value="taha">Taha (All regions)</option>
-<option value="kamila">Kamila (UAE only)</option>
+<option value="kamila">Kamilla (UAE only)</option>
 <option value="mohammed">Mohammed (Non-UAE)</option>
 </select>
 <input type="password" id="pwdInput" placeholder="Password" onkeydown="if(event.key==='Enter')doLogin()">
@@ -447,7 +465,7 @@ async function loadData(){
   }
 }
 const PWD='salesdash';
-const USERS={alex:{name:'Alex',filter:null},taha:{name:'Taha',filter:null},kamila:{name:'Kamila',filter:'United Arab Emirates',mode:'only'},mohammed:{name:'Mohammed',filter:'United Arab Emirates',mode:'exclude'}};
+const USERS={alex:{name:'Alex',filter:null},taha:{name:'Taha',filter:null},kamila:{name:'Kamilla',filter:'United Arab Emirates',mode:'only'},mohammed:{name:'Mohammed',filter:'United Arab Emirates',mode:'exclude'}};
 
 let curUser=null, ORGS=[], EVENTS=[], charts={};
 let orgAssign={}, evtAssign={};
@@ -555,18 +573,35 @@ function drillDown(view,searchTerm){
   oppView=view||'all';oppPage=0;oppFilters={country:'',tier:'',stage:'',type:'',search:searchTerm||'',tag:''};
   switchTab('opportunities');
 }
+function getEvtStatus(orgName,evtId){
+  const statuses=ORG_ACTIONS.filter(a=>a.org===orgName&&(a.action==='evt_to_contact'||a.action==='evt_working'||a.action==='evt_done')&&a.note&&a.note.startsWith('evt:'+evtId+':'));
+  if(statuses.length===0)return null;
+  return statuses[0].action.replace('evt_','');
+}
+async function setEvtStatus(orgName,evtId,evtName,status){
+  await logOrgAction(orgName,'evt_'+status,'evt:'+evtId+':'+evtName);
+  // Refresh the modal
+  document.querySelector('.org-modal-overlay')?.remove();
+  showOrgEvents(orgName);
+}
 function showOrgEvents(orgName){
   const orgEvts=EVENTS.filter(e=>e.org===orgName).sort((a,b)=>(b.id||0)-(a.id||0));
   const org=ORGS.find(o=>o.organizer===orgName);
+  const orgNotes=ORG_ACTIONS.filter(a=>a.org===orgName&&a.note);
   const overlay=document.createElement('div');
   overlay.className='org-modal-overlay';
   overlay.onclick=e=>{if(e.target===overlay)overlay.remove();};
+  const statusLabels={to_contact:{l:'To Contact',c:'var(--amber)',i:'📞'},working:{l:'Working On It',c:'var(--blue)',i:'🔧'},done:{l:'Done',c:'var(--green)',i:'✅'}};
   let evtRows='';
   if(orgEvts.length===0){
-    evtRows='<tr><td colspan="7" style="text-align:center;padding:24px;color:var(--text3)">No events found for this organiser</td></tr>';
+    evtRows='<tr><td colspan="9" style="text-align:center;padding:24px;color:var(--text3)">No events found for this organiser</td></tr>';
   } else {
-    evtRows=orgEvts.map(e=>`<tr>
-      <td class="evt-id">${e.id||'—'}</td>
+    evtRows=orgEvts.map(e=>{
+      const st=getEvtStatus(orgName,e.id);
+      const stBtns=Object.entries(statusLabels).map(([k,v])=>`<button class="evt-st-btn${st===k?' evt-st-active':''}" style="${st===k?'background:'+v.c+';color:var(--pl-storm);border-color:'+v.c:''}" onclick="event.stopPropagation();setEvtStatus('${orgName.replace(/'/g,"\\'")}','${e.id}','${(e.name||'').replace(/'/g,"\\'")}','${k}')">${v.i} ${v.l}</button>`).join('');
+      const evtLink=e.id?`<a href="https://platinumlist.net/event-tickets/${e.id}" target="_blank" rel="noopener" class="evt-link" onclick="event.stopPropagation()" title="Open on Platinumlist">${e.id} ↗</a>`:'—';
+      return`<tr>
+      <td class="evt-id">${evtLink}</td>
       <td>${e.name||'—'}</td>
       <td>${e.date||'—'}</td>
       <td>${e.type||'—'}</td>
@@ -574,7 +609,18 @@ function showOrgEvents(orgName){
       <td class="evt-rev">${fmtCur(e.rev||0)}</td>
       <td class="evt-mkt">${fmtCur(e.mkt||0)}</td>
       <td>${e.share!=null?(e.share*100).toFixed(1)+'%':'—'}</td>
-    </tr>`).join('');
+      <td class="evt-status-cell">${stBtns}</td>
+    </tr>`;
+    }).join('');
+  }
+  // Notes section
+  let notesHtml='';
+  if(orgNotes.length>0){
+    const actI={worked_on:'✅',note:'📝',call:'📞',email:'📧',meeting:'🤝',task:'📋',evt_to_contact:'📞',evt_working:'🔧',evt_done:'✅'};
+    notesHtml=`<div class="org-notes-section"><h4 style="margin:16px 0 8px;font-size:13px;color:var(--text2)">📝 Notes & Activity History</h4>${orgNotes.slice(0,15).map(n=>{
+      const d=n.created_at?getTimeAgo(n.created_at):'';
+      return`<div class="org-note-row"><span>${actI[n.action]||'⚡'} <b>${n.user_name||'Team'}</b> — ${n.action}${n.note?' — <i>'+n.note+'</i>':''}</span><span style="color:var(--text3);font-size:11px;white-space:nowrap">${d}</span></div>`;
+    }).join('')}</div>`;
   }
   overlay.innerHTML=`<div class="org-modal">
     <div class="org-modal-head">
@@ -584,9 +630,10 @@ function showOrgEvents(orgName){
     </div>
     <div class="org-modal-body">
       <table class="org-evt-table">
-        <thead><tr><th>Event ID</th><th>Event Name</th><th>Date</th><th>Type</th><th>Country</th><th>Ticketing</th><th>Marketing</th><th>Share</th></tr></thead>
+        <thead><tr><th>Event ID</th><th>Event Name</th><th>Date</th><th>Type</th><th>Country</th><th>Ticketing</th><th>Marketing</th><th>Share</th><th>Status</th></tr></thead>
         <tbody>${evtRows}</tbody>
       </table>
+      ${notesHtml}
     </div>
   </div>`;
   document.body.appendChild(overlay);
@@ -700,7 +747,7 @@ async function loadOverviewFeed(){
   el.innerHTML=recent.map(a=>{
     const icon=actIcons[a.action]||'⚡';
     const timeAgo=a.created_at?getTimeAgo(a.created_at):'';
-    return`<div class="af-item"><span class="af-icon">${icon}</span><span><span class="af-user">${a.user_name||'Team'}</span> ${a.action==='note'?'noted on':'worked on'} <b>${a.org}</b>${a.note?' — <i style="color:var(--text2)">'+a.note+'</i>':''}</span><span class="af-time">${timeAgo}</span></div>`;
+    return`<div class="af-item" style="cursor:pointer" onclick="showOrgEvents('${(a.org||'').replace(/'/g,"\\'")}')" title="Click to view ${a.org}"><span class="af-icon">${icon}</span><span><span class="af-user">${a.user_name||'Team'}</span> ${a.action==='note'?'noted on':'worked on'} <b>${a.org}</b>${a.note?' — <i style="color:var(--text2)">'+a.note+'</i>':''}</span><span class="af-time">${timeAgo}</span></div>`;
   }).join('');
 }
 function getTimeAgo(dateStr){
@@ -788,7 +835,8 @@ function renderOpps(){
     <select onchange="oppFilters.tier=this.value;oppPage=0;sess.filters++;logAction('filter_tier',this.value,'opportunities');renderOppCards()"><option value="">All Tiers</option>${tiers.map(t=>`<option value="${t}">${t}</option>`).join('')}</select>
     <select onchange="oppFilters.stage=this.value;oppPage=0;sess.filters++;logAction('filter_stage',this.value,'opportunities');renderOppCards()"><option value="">All Stages</option>${stages.map(s=>`<option value="${s}">${s}</option>`).join('')}</select>
     <select onchange="oppFilters.type=this.value;oppPage=0;sess.filters++;logAction('filter_type',this.value,'opportunities');renderOppCards()"><option value="">All Types</option>${types.map(t=>`<option value="${t}">${t}</option>`).join('')}</select>
-    <input placeholder="Search organisers..." oninput="oppFilters.search=this.value.toLowerCase();oppPage=0;sess.searches++;renderOppCards()" onchange="logAction('search',this.value,'opportunities')">
+    <input id="oppSearchInput" placeholder="Search organisers..." value="${oppFilters.search||''}" oninput="oppFilters.search=this.value.toLowerCase();oppPage=0;sess.searches++;renderOppCards()" onchange="logAction('search',this.value,'opportunities')">
+    ${oppFilters.search?`<button class="btn-clear-filter" onclick="oppFilters.search='';oppView='all';oppPage=0;renderOpp()" title="Clear search filter">✕ Clear</button>`:''}
     <button class="btn-export" onclick="sess.exports++;logAction('export','csv_filtered','opportunities');exportCSV()">📥 Export CSV</button>
   </div>
   <div class="chips">${Object.entries(TAG_META).filter(([k])=>tagCounts[k]).map(([k,v])=>`<div class="chip ${oppFilters.tag===k?'active':''}" data-tag="${k}" onclick="oppFilters.tag=oppFilters.tag==='${k}'?'':'${k}';oppPage=0;logAction('filter_tag','${k}','opportunities');renderOppCards()">${v.i} ${v.l} <span class="cnt">${tagCounts[k]||0}</span></div>`).join('')}</div>
@@ -988,14 +1036,19 @@ function renderPerf(){
   const sample=ORGS.filter(o=>o.ps>30||o.rs>30);
   charts.heat=new Chart(document.getElementById('chHeat'),{type:'scatter',data:{datasets:[{data:sample.map(o=>({x:o.ps,y:o.rs})),backgroundColor:sample.map(o=>o.sr==='hot'?'rgba(239,68,68,0.7)':o.sr==='warm'?'rgba(245,158,11,0.7)':'rgba(59,130,246,0.4)'),pointRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>{const o=sample[ctx.dataIndex];return`${o.organizer}: PS=${o.ps}, RS=${o.rs}`;}}}},scales:{x:{title:{display:true,text:'Priority Score →',color:'#8fa8b4'},ticks:{color:'#5d7a86'}},y:{title:{display:true,text:'Risk Score →',color:'#8fa8b4'},ticks:{color:'#5d7a86'}}}}}); 
 
-  // Alert cards
+  // Alert cards — now showing relevant events
   const alerts=ORGS.filter(o=>o.rs>60||o.gt==='decelerating').sort((a,b)=>b.rs-a.rs).slice(0,12);
   const srCls={hot:'badge-hot',warm:'badge-warm',cold:'badge-cold',medium:'badge-medium'};
-  document.getElementById('perfAlerts').innerHTML=alerts.map(o=>`<div class="card">
+  document.getElementById('perfAlerts').innerHTML=alerts.map(o=>{
+    const orgEvts=EVENTS.filter(e=>e.org===o.organizer).sort((a,b)=>(b.rev||0)-(a.rev||0)).slice(0,3);
+    const evtHtml=orgEvts.length>0?`<div style="padding:8px 16px 12px;font-size:11px;color:var(--text2)">📅 Events: ${orgEvts.map(e=>`<a href="https://platinumlist.net/event-tickets/${e.id}" target="_blank" rel="noopener" class="evt-link" style="font-size:11px" onclick="event.stopPropagation()">${(e.name||'').substring(0,30)}</a>`).join(', ')}</div>`:'';
+    return`<div class="card" onclick="showOrgEvents('${o.organizer.replace(/'/g,"\\'")}')">
     <div class="card-head"><div class="card-name">${o.organizer}</div><div class="card-badges"><span class="badge ${srCls[o.sr]}">${o.sr}</span></div></div>
     <div class="card-meta"><span class="meta-pill">${o.country}</span><span class="meta-pill">Risk: ${o.rs}/100</span></div>
     <div class="card-action" style="border-left:3px solid var(--red)"><span class="action-text" style="color:var(--red)">${o.nba}</span></div>
-  </div>`).join('');
+    ${evtHtml}
+  </div>`;
+  }).join('');
 }
 
 /* ===== RAW DATA TAB ===== */
@@ -1296,7 +1349,7 @@ function showAssignMenu(type,id,btn){
   const existing=document.querySelector('.assign-menu');
   if(existing)existing.remove();
   if(curUser.id==='mohammed'){assignTask(type,id,'Mohammed Abdelnour');return;}
-  if(curUser.id==='kamila'){assignTask(type,id,'Kamila');return;}
+  if(curUser.id==='kamila'){assignTask(type,id,'Kamilla');return;}
   const menu=document.createElement('div');
   menu.className='assign-menu';
   menu.style.cssText='position:absolute;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:4px;z-index:999;min-width:180px;';
@@ -1541,15 +1594,25 @@ function makeSparkline(values){
   return`<div class="kpi-spark">${values.map(v=>`<div class="kpi-spark-bar" style="height:${Math.max(2,Math.round(v/max*22))}px"></div>`).join('')}</div>`;
 }
 
-/* ===== v2.8 NOTE MODAL ===== */
+/* ===== v3.1 NOTE MODAL with history ===== */
 function showNoteModal(org){
+  const orgNotes=ORG_ACTIONS.filter(a=>a.org===org&&a.note);
   const overlay=document.createElement('div');
   overlay.className='note-modal-overlay';
   overlay.onclick=e=>{if(e.target===overlay)overlay.remove();};
+  let historyHtml='';
+  if(orgNotes.length>0){
+    historyHtml=`<div class="nm-history"><div style="font-size:12px;color:var(--text3);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px">Previous Notes</div>${orgNotes.slice(0,10).map(n=>{
+      const d=n.created_at?getTimeAgo(n.created_at):'';
+      const icon=n.action==='note'?'📝':n.action==='task'?'📋':'✅';
+      return`<div class="nm-note-item"><span class="nm-note-meta">${icon} ${n.user_name||'Team'} · ${d}</span><span class="nm-note-text">${n.note}</span></div>`;
+    }).join('')}</div>`;
+  }
   overlay.innerHTML=`<div class="note-modal">
-    <h3>📝 Add Note</h3>
-    <div class="nm-org">${org}</div>
-    <textarea id="noteInput" placeholder="Type your note here..." autofocus></textarea>
+    <h3>📝 Notes — ${org}</h3>
+    <div class="nm-org">${orgNotes.length} note${orgNotes.length!==1?'s':''} recorded</div>
+    ${historyHtml}
+    <textarea id="noteInput" placeholder="Add a new note..." autofocus></textarea>
     <div class="nm-btns">
       <button class="nm-btn nm-cancel" onclick="this.closest('.note-modal-overlay').remove()">Cancel</button>
       <button class="nm-btn nm-save" onclick="submitNote('${org.replace(/'/g,"\\'")}')">Save Note</button>
@@ -1557,7 +1620,6 @@ function showNoteModal(org){
   </div>`;
   document.body.appendChild(overlay);
   setTimeout(()=>{const ta=document.getElementById('noteInput');if(ta)ta.focus();},50);
-  // Escape closes
   overlay.addEventListener('keydown',e=>{if(e.key==='Escape')overlay.remove();});
 }
 async function submitNote(org){
@@ -1571,7 +1633,7 @@ async function submitNote(org){
 
 /* ===== v3.0 ASANA TASK CREATION ===== */
 const ASANA_TEAM=[
-  {id:'kamila',name:'Kamila',asanaGid:'1213079297046105'},
+  {id:'kamila',name:'Kamilla',asanaGid:'1213079297046105'},
   {id:'mohammed',name:'Mohammed',asanaGid:'1206918887000855'},
   {id:'taha',name:'Taha',asanaGid:'1204162711412246'},
   {id:'alex',name:'Alex',asanaGid:'39708523251745'}
@@ -1644,7 +1706,7 @@ async function renderTeam(){
   try{
     const {data:allVisits}=await sb.from('dashboard_visits').select('user_name,logged_in_at').order('logged_in_at',{ascending:false}).limit(500);
     const {data:allActions}=await sb.from('dashboard_org_actions').select('user_name,action,org,created_at').order('created_at',{ascending:false}).limit(500);
-    const teamNames=['Alex','Taha','Kamila','Mohammed'];
+    const teamNames=['Alex','Taha','Kamilla','Mohammed'];
     html+='<div class="team-grid">';
     teamNames.forEach(name=>{
       const visits=(allVisits||[]).filter(v=>v.user_name===name);
