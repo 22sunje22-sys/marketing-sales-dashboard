@@ -569,6 +569,8 @@ function switchTab(t){
   else if(t==='team')renderTeam();
   else if(t==='activity')renderActivity();
 }
+function evtSlug(name){return(name||'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');}
+function evtUrl(id,name){return'https://platinumlist.net/event-tickets/'+id+'/'+evtSlug(name);}
 function drillDown(view,searchTerm){
   oppView=view||'all';oppPage=0;oppFilters={country:'',tier:'',stage:'',type:'',search:searchTerm||'',tag:''};
   switchTab('opportunities');
@@ -599,7 +601,7 @@ function showOrgEvents(orgName){
     evtRows=orgEvts.map(e=>{
       const st=getEvtStatus(orgName,e.id);
       const stBtns=Object.entries(statusLabels).map(([k,v])=>`<button class="evt-st-btn${st===k?' evt-st-active':''}" style="${st===k?'background:'+v.c+';color:var(--pl-storm);border-color:'+v.c:''}" onclick="event.stopPropagation();setEvtStatus('${orgName.replace(/'/g,"\\'")}','${e.id}','${(e.name||'').replace(/'/g,"\\'")}','${k}')">${v.i} ${v.l}</button>`).join('');
-      const evtLink=e.id?`<a href="https://platinumlist.net/event-tickets/${e.id}" target="_blank" rel="noopener" class="evt-link" onclick="event.stopPropagation()" title="Open on Platinumlist">${e.id} ↗</a>`:'—';
+      const evtLink=e.id?`<a href="${evtUrl(e.id,e.name)}" target="_blank" rel="noopener" class="evt-link" onclick="event.stopPropagation()" title="Open on Platinumlist">${e.id} ↗</a>`:'—';
       return`<tr>
       <td class="evt-id">${evtLink}</td>
       <td>${e.name||'—'}</td>
@@ -1041,7 +1043,7 @@ function renderPerf(){
   const srCls={hot:'badge-hot',warm:'badge-warm',cold:'badge-cold',medium:'badge-medium'};
   document.getElementById('perfAlerts').innerHTML=alerts.map(o=>{
     const orgEvts=EVENTS.filter(e=>e.org===o.organizer).sort((a,b)=>(b.rev||0)-(a.rev||0)).slice(0,3);
-    const evtHtml=orgEvts.length>0?`<div style="padding:8px 16px 12px;font-size:11px;color:var(--text2)">📅 Events: ${orgEvts.map(e=>`<a href="https://platinumlist.net/event-tickets/${e.id}" target="_blank" rel="noopener" class="evt-link" style="font-size:11px" onclick="event.stopPropagation()">${(e.name||'').substring(0,30)}</a>`).join(', ')}</div>`:'';
+    const evtHtml=orgEvts.length>0?`<div style="padding:8px 16px 12px;font-size:11px;color:var(--text2)">📅 Events: ${orgEvts.map(e=>`<a href="${evtUrl(e.id,e.name)}" target="_blank" rel="noopener" class="evt-link" style="font-size:11px" onclick="event.stopPropagation()">${(e.name||'').substring(0,30)}</a>`).join(', ')}</div>`:'';
     return`<div class="card" onclick="showOrgEvents('${o.organizer.replace(/'/g,"\\'")}')">
     <div class="card-head"><div class="card-name">${o.organizer}</div><div class="card-badges"><span class="badge ${srCls[o.sr]}">${o.sr}</span></div></div>
     <div class="card-meta"><span class="meta-pill">${o.country}</span><span class="meta-pill">Risk: ${o.rs}/100</span></div>
