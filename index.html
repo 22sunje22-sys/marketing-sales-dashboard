@@ -410,6 +410,7 @@ tr:hover td { background:var(--surface2); }
 <div class="tab" data-tab="raw">Raw Data</div>
 <div class="tab" data-tab="team">👥 Team</div>
 <div class="tab" data-tab="activity">📋 Activity</div>
+<div class="tab" data-tab="countries-raw" style="display:none">🌍 Countries RAW</div>
 </div>
 <div class="content">
 <div class="tab-pane active" id="pane-overview"></div>
@@ -421,6 +422,7 @@ tr:hover td { background:var(--surface2); }
 <div class="tab-pane" id="pane-raw"></div>
 <div class="tab-pane" id="pane-team"></div>
 <div class="tab-pane" id="pane-activity"></div>
+<div class="tab-pane" id="pane-countries-raw"></div>
 </div>
 </div>
 
@@ -512,6 +514,9 @@ async function doLogin(){
   oppView='all';oppPage=0;oppFilters={country:'',tier:'',stage:'',type:'',search:'',tag:''};
   bulkSelected.clear();try{localStorage.removeItem('plDashFilters');}catch(e){}
   initData();
+  /* Countries RAW tab — only for Alex */
+  const crTab=document.querySelector('.tab[data-tab="countries-raw"]');
+  if(crTab)crTab.style.display=curUser.id==='alex'?'':'none';
   document.getElementById('loginWrap').style.display='none';
   document.getElementById('app').style.display='block';
   document.getElementById('userBadge').textContent=curUser.name+(curUser.filter?(' • '+(curUser.mode==='only'?curUser.filter:'Non-'+curUser.filter)):'');
@@ -568,6 +573,7 @@ function switchTab(t){
   else if(t==='raw')renderRaw();
   else if(t==='team')renderTeam();
   else if(t==='activity')renderActivity();
+  else if(t==='countries-raw')renderCountriesRaw();
 }
 function evtSlug(name){return(name||'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');}
 function evtUrl(id,name){return'https://platinumlist.net/event-tickets/'+id+'/'+evtSlug(name);}
@@ -1697,6 +1703,176 @@ async function submitTask(org){
     errEl.textContent=e.message;errEl.style.display='block';
     btn.textContent='Create Task';btn.disabled=false;
   }
+}
+
+/* ===== COUNTRIES RAW TAB (Alex only) ===== */
+function renderCountriesRaw(){
+  const p=document.getElementById('pane-countries-raw');
+  if(!p)return;
+
+  /* ---- Embedded monthly data (37 months: Jan 2023 – Jan 2026) ---- */
+  const CR_MONTHS=['Jan 2023','Feb 2023','Mar 2023','Apr 2023','May 2023','Jun 2023','Jul 2023','Aug 2023','Sep 2023','Oct 2023','Nov 2023','Dec 2023','Jan 2024','Feb 2024','Mar 2024','Apr 2024','May 2024','Jun 2024','Jul 2024','Aug 2024','Sep 2024','Oct 2024','Nov 2024','Dec 2024','Jan 2025','Feb 2025','Mar 2025','Apr 2025','May 2025','Jun 2025','Jul 2025','Aug 2025','Sep 2025','Oct 2025','Nov 2025','Dec 2025','Jan 2026'];
+
+  const CR_DATA={
+    'UAE':{cur:'AED',
+      tick:[47059415.5,38621484.17,63434268.7,42779578.62,62394993.38,65978847.55,87165408.18,97440042.4,85975813.29,143524041.9,121041555.3,158271527,81706580.65,66898162.3,100497498.4,86028748.98,118756461.9,127219568.5,167748547.8,192011580.2,142127673.7,165124413.7,186948619.4,295695225.1,115617619.5,100540888.3,165261547.5,134434083.5,202977213.6,222009427.8,253200614.2,274249985.1,213462209.8,167587273,144966947.9,236973497.9,69676001.2],
+      mkt:[213684.63,178249.21,283706.39,220741.03,399697.52,368539.41,606703.11,543553.55,583558.34,974047.2,874636.84,1112978.4,698869.27,576516.88,891225.49,769600.17,973048.23,1044804.15,1249019.14,1499695.07,1249490.41,1432875.44,1576745.54,2188017.73,999745.28,821920.03,1421831.07,1052225.45,1551003.1,1556688.72,1786920.52,1930613.18,797311.45,1377892.57,1344852.27,1403022.29,671081.45],
+      pmss:[0.004540,0.004616,0.004473,0.005159,0.006406,0.005586,0.006961,0.005579,0.006788,0.006787,0.007225,0.007031,0.008553,0.008618,0.008868,0.008947,0.008193,0.008213,0.007447,0.007810,0.008791,0.008677,0.008435,0.007399,0.008647,0.008175,0.008603,0.007826,0.007640,0.007012,0.007058,0.007037,0.003734,0.008222,0.009277,0.005919,0.009631]},
+    'Bahrain':{cur:'BHD',
+      tick:[468066.3,398476.94,695823.18,544090.56,799978.37,871254.64,1177649.11,1239479.28,1015619.77,1464578.56,1286462.39,1600082.1,827621.5,701093.26,1099268.68,992609.13,1323408.98,1415685.96,1685477.73,1880283.9,1430093.28,1700665.55,1888481.33,2620832.28,1060555.3,930804.56,1519895.88,1241892.59,1853703.59,1945965.98,2219843.32,2411082.05,1861684.03,1472099.8,1329279.85,2044408.97,600064.1],
+      mkt:[null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,3152.01,3533.9,3208.41,4066.46,3818.91,4924.38,1736.07],
+      pmss:[null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,0.001419,0.001465,0.001724,0.002763,0.002873,0.002409,0.002893]},
+    'Saudi Arabia':{cur:'SAR',
+      tick:[6609494.33,5526041.63,9469046.84,7580003.91,10618403.59,12020750.97,16614543.29,18220513.55,14869003.12,22272050.53,19481636.44,24219965.63,12741430.03,10660453.66,17012800.93,14823127.05,20371965.84,21916948.75,26606501.59,30039609.46,22735748.72,26823513.53,29874059.93,41677026.24,17087847.62,14836133.96,24096793.51,19765782.49,29613785.57,30976380.3,35349625.52,38696558.34,29862048.4,23502780.88,21208668.5,32635023.34,9606268.04],
+      mkt:[null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,47742.97,56083.7,49016.77,64891.48,60967.97,78736.03,27759.08],
+      pmss:[null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,0.001351,0.001449,0.001642,0.002761,0.002875,0.002413,0.002890]},
+    'Oman':{cur:'OMR',
+      tick:[null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null],
+      mkt:[null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null],
+      pmss:[null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null]},
+    'Qatar':{cur:'QAR',
+      tick:[null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null],
+      mkt:[null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null],
+      pmss:[null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null]}
+  };
+
+  const countries=Object.keys(CR_DATA);
+  const fmtCR=(n,cur)=>{
+    if(n==null)return'-';
+    if(Math.abs(n)>=1e9)return cur+' '+(n/1e9).toFixed(2)+'B';
+    if(Math.abs(n)>=1e6)return cur+' '+(n/1e6).toFixed(2)+'M';
+    if(Math.abs(n)>=1e3)return cur+' '+(n/1e3).toFixed(1)+'K';
+    return cur+' '+n.toFixed(0);
+  };
+  const sumNonNull=arr=>arr.reduce((s,v)=>s+(v==null?0:v),0);
+  const avgNonNull=arr=>{const v=arr.filter(x=>x!=null);return v.length?v.reduce((s,x)=>s+x,0)/v.length:null;};
+
+  /* Selectors for country + time range */
+  const selId='crCountrySel';
+  const rangeId='crRangeSel';
+
+  p.innerHTML=`
+    <div style="padding:20px">
+      <h3 style="margin-bottom:16px">🌍 Countries RAW — Monthly Performance</h3>
+      <div style="display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap;align-items:center">
+        <label style="color:var(--text2);font-size:13px">Country:</label>
+        <select id="${selId}" style="background:var(--surface);color:var(--text1);border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-size:13px">
+          <option value="UAE">🇦🇪 UAE (AED)</option>
+          <option value="Bahrain">🇧🇭 Bahrain (BHD)</option>
+          <option value="Saudi Arabia">🇸🇦 Saudi Arabia (SAR)</option>
+          <option value="Oman">🇴🇲 Oman (OMR)</option>
+          <option value="Qatar">🇶🇦 Qatar (QAR)</option>
+        </select>
+        <label style="color:var(--text2);font-size:13px">Period:</label>
+        <select id="${rangeId}" style="background:var(--surface);color:var(--text1);border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-size:13px">
+          <option value="all">All (Jan 2023 – Jan 2026)</option>
+          <option value="12">Last 12 months</option>
+          <option value="24">Last 24 months</option>
+        </select>
+      </div>
+
+      <!-- KPI cards -->
+      <div id="crKpis" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:20px"></div>
+
+      <!-- Charts -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px">
+        <div class="seg-card"><h4 style="margin-bottom:10px">Ticketing Revenue</h4><div style="height:240px"><canvas id="crTickChart"></canvas></div></div>
+        <div class="seg-card"><h4 style="margin-bottom:10px">Marketing Spend</h4><div style="height:240px"><canvas id="crMktChart"></canvas></div></div>
+      </div>
+      <div class="seg-card" style="margin-bottom:20px"><h4 style="margin-bottom:10px">PMSS % (Marketing / Ticketing)</h4><div style="height:240px"><canvas id="crPmssChart"></canvas></div></div>
+
+      <!-- Data table (last 12 months) -->
+      <div class="seg-card">
+        <h4 style="margin-bottom:12px">Monthly Detail Table</h4>
+        <div style="overflow-x:auto"><table id="crTable" style="width:100%;border-collapse:collapse;font-size:12px"></table></div>
+      </div>
+    </div>
+  `;
+
+  function crRender(){
+    const country=document.getElementById(selId).value;
+    const rangeVal=document.getElementById(rangeId).value;
+    const d=CR_DATA[country];
+    const cur=d.cur;
+
+    /* slice data by range */
+    let months=CR_MONTHS, tick=d.tick, mkt=d.mkt, pmss=d.pmss;
+    if(rangeVal!=='all'){
+      const n=parseInt(rangeVal);
+      months=months.slice(-n);
+      tick=tick.slice(-n);
+      mkt=mkt.slice(-n);
+      pmss=pmss.slice(-n);
+    }
+
+    /* KPIs */
+    const totalTick=sumNonNull(tick);
+    const totalMkt=sumNonNull(mkt);
+    const avgPmss=avgNonNull(pmss);
+    const kpis=document.getElementById('crKpis');
+    kpis.innerHTML=`
+      <div class="seg-card" style="text-align:center">
+        <div style="color:var(--text2);font-size:11px;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Total Ticketing Rev</div>
+        <div style="font-size:22px;font-weight:700;color:var(--accent)">${fmtCR(totalTick,cur)}</div>
+        <div style="font-size:11px;color:var(--text3)">${months[0]} – ${months[months.length-1]}</div>
+      </div>
+      <div class="seg-card" style="text-align:center">
+        <div style="color:var(--text2);font-size:11px;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Total Marketing Spend</div>
+        <div style="font-size:22px;font-weight:700;color:var(--green)">${fmtCR(totalMkt,cur)}</div>
+        <div style="font-size:11px;color:var(--text3)">${months[0]} – ${months[months.length-1]}</div>
+      </div>
+      <div class="seg-card" style="text-align:center">
+        <div style="color:var(--text2);font-size:11px;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Avg PMSS %</div>
+        <div style="font-size:22px;font-weight:700;color:var(--amber)">${avgPmss!=null?(avgPmss*100).toFixed(3)+'%':'-'}</div>
+        <div style="font-size:11px;color:var(--text3)">marketing / ticketing</div>
+      </div>
+      <div class="seg-card" style="text-align:center">
+        <div style="color:var(--text2);font-size:11px;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Currency</div>
+        <div style="font-size:22px;font-weight:700;color:var(--purple)">${cur}</div>
+        <div style="font-size:11px;color:var(--text3)">${country}</div>
+      </div>
+    `;
+
+    /* destroy old charts */
+    ['crTickChart','crMktChart','crPmssChart'].forEach(id=>{
+      if(charts['cr_'+id]){charts['cr_'+id].destroy();delete charts['cr_'+id];}
+    });
+
+    const chartOpts={responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{maxTicksLimit:8,color:'#6b7280',font:{size:10}},grid:{color:'rgba(255,255,255,0.04)'}},y:{ticks:{color:'#6b7280',font:{size:10}},grid:{color:'rgba(255,255,255,0.06)'}}}};
+
+    charts['cr_crTickChart']=new Chart(document.getElementById('crTickChart'),{type:'bar',data:{labels:months,datasets:[{label:'Ticketing',data:tick,backgroundColor:'rgba(121,226,255,0.6)',borderColor:'#79E2FF',borderWidth:1}]},options:{...chartOpts,plugins:{...chartOpts.plugins,tooltip:{callbacks:{label:ctx=>fmtCR(ctx.raw,cur)}}}}});
+
+    charts['cr_crMktChart']=new Chart(document.getElementById('crMktChart'),{type:'bar',data:{labels:months,datasets:[{label:'Marketing',data:mkt,backgroundColor:'rgba(199,248,138,0.6)',borderColor:'#C7F88A',borderWidth:1}]},options:{...chartOpts,plugins:{...chartOpts.plugins,tooltip:{callbacks:{label:ctx=>fmtCR(ctx.raw,cur)}}}}});
+
+    charts['cr_crPmssChart']=new Chart(document.getElementById('crPmssChart'),{type:'line',data:{labels:months,datasets:[{label:'PMSS %',data:pmss.map(v=>v!=null?parseFloat((v*100).toFixed(4)):null),borderColor:'#F59E0B',backgroundColor:'rgba(245,158,11,0.12)',fill:true,tension:0.3,pointRadius:2,spanGaps:true}]},options:{...chartOpts,scales:{...chartOpts.scales,y:{...chartOpts.scales.y,ticks:{...chartOpts.scales.y.ticks,callback:v=>v.toFixed(3)+'%'}}},plugins:{...chartOpts.plugins,tooltip:{callbacks:{label:ctx=>ctx.raw!=null?ctx.raw.toFixed(4)+'%':'-'}}}}});
+
+    /* table */
+    const tbl=document.getElementById('crTable');
+    let rows=`<thead><tr style="border-bottom:1px solid var(--border)">
+      <th style="text-align:left;padding:6px 8px;color:var(--text2)">Month</th>
+      <th style="text-align:right;padding:6px 8px;color:var(--text2)">Ticketing Rev (${cur})</th>
+      <th style="text-align:right;padding:6px 8px;color:var(--text2)">Marketing Spend (${cur})</th>
+      <th style="text-align:right;padding:6px 8px;color:var(--text2)">PMSS %</th>
+    </tr></thead><tbody>`;
+    const tableMonths=[...months].reverse();
+    const tableTick=[...tick].reverse();
+    const tableMkt=[...mkt].reverse();
+    const tablePmss=[...pmss].reverse();
+    tableMonths.forEach((m,i)=>{
+      rows+=`<tr style="border-bottom:1px solid rgba(255,255,255,0.04)">
+        <td style="padding:5px 8px;color:var(--text2)">${m}</td>
+        <td style="padding:5px 8px;text-align:right;color:var(--text1)">${fmtCR(tableTick[i],cur)}</td>
+        <td style="padding:5px 8px;text-align:right;color:var(--green)">${fmtCR(tableMkt[i],cur)}</td>
+        <td style="padding:5px 8px;text-align:right;color:var(--amber)">${tablePmss[i]!=null?(tablePmss[i]*100).toFixed(4)+'%':'-'}</td>
+      </tr>`;
+    });
+    rows+='</tbody>';
+    tbl.innerHTML=rows;
+  }
+
+  crRender();
+  document.getElementById(selId).addEventListener('change',crRender);
+  document.getElementById(rangeId).addEventListener('change',crRender);
 }
 
 /* ===== v3.0 TEAM STATS TAB ===== */
