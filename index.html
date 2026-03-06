@@ -367,9 +367,64 @@ tr:hover td { background:var(--surface2); }
 .sv-btn { padding:5px 12px; border-radius:16px; font-size:11px; border:1px dashed var(--border); background:transparent; color:var(--text2); cursor:pointer; transition:all 0.2s; }
 .sv-btn:hover { border-color:var(--pl-monday); color:var(--pl-monday); }
 .sv-btn.sv-save { border-style:dashed; }
+
+/* ===== PRELOADER ===== */
+#preloader {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: var(--bg, #0A181C);
+  z-index: 9999;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+}
+#preloader.active { display: flex; }
+.pl-logo {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--blue, #79E2FF);
+  letter-spacing: 0.5px;
+}
+.pl-bar-wrap {
+  width: 320px;
+  height: 4px;
+  background: rgba(255,255,255,0.08);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.pl-bar {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, var(--blue,#79E2FF), var(--green,#C7F88A));
+  border-radius: 4px;
+  transition: width 0.4s ease;
+}
+.pl-joke {
+  font-size: 13px;
+  color: var(--text3, #6B8A92);
+  max-width: 340px;
+  text-align: center;
+  line-height: 1.6;
+  min-height: 42px;
+  transition: opacity 0.4s;
+}
+.pl-status {
+  font-size: 11px;
+  color: var(--text3, #6B8A92);
+  opacity: 0.6;
+}
 </style>
 </head>
 <body>
+<div id="preloader">
+  <div class="pl-logo">📊 Platinumlist Sales Dashboard</div>
+  <div class="pl-bar-wrap"><div class="pl-bar" id="plBar"></div></div>
+  <div class="pl-joke" id="plJoke"></div>
+  <div class="pl-status" id="plStatus">Loading data...</div>
+</div>
+
 
 <!-- LOGIN -->
 <div class="login-wrap" id="loginWrap">
@@ -444,10 +499,13 @@ let dataLoaded=false;
 async function loadData(){
   const base=window.location.origin;
   try{
+    const statusEl=document.getElementById('plStatus');
+    if(statusEl)statusEl.textContent='Loading organisers & events from Supabase…';
     const [orgsRes,eventsRes]=await Promise.all([
       fetch(base+'/api/orgs'),
       fetch(base+'/api/events')
     ]);
+    if(statusEl)statusEl.textContent='Processing '+((await orgsRes.clone().json()).length||'…')+' organisers…';
     if(!orgsRes.ok||!eventsRes.ok)throw new Error('API error');
     RAW_ORGS=await orgsRes.json();
     RAW_EVENTS=await eventsRes.json();
@@ -494,6 +552,67 @@ const fmtPct=n=>n!=null?(n>0?'+':'')+n.toFixed(1)+'%':'-';
 const fmtCur=n=>{if(n==null)return'-';if(Math.abs(n)>=1e9)return'AED '+(n/1e9).toFixed(1)+'B';if(Math.abs(n)>=1e6)return'AED '+(n/1e6).toFixed(1)+'M';if(Math.abs(n)>=1e3)return'AED '+(n/1e3).toFixed(0)+'K';return'AED '+Math.round(n);};
 
 /* LOGIN */
+
+/* ===== PRELOADER LOGIC ===== */
+const PL_JOKES = [
+  "Calculating ROAS… just kidding, it's 0.4x 😬",
+  "Loading 11,471 events… yes, someone manually checked each one.",
+  "Fetching marketing spend data… AKA the 'why did we blow the budget' tab.",
+  "Why do paid marketers make great DJs? They always know how to drop a bid.",
+  "Our CPM is so high even the server is judging us.",
+  "Counting conversions… found 3. Two were test clicks by the intern.",
+  "Running attribution model… result: 'It was definitely the last click.'",
+  "Digital marketing: paying Facebook to show ads to people who hate ads.",
+  "Loading organiser data… sorting by 'will actually respond to emails'.",
+  "PMSS stands for Paid Marketing Services Share. Or 'Please Make Spending Stop'.",
+  "Optimising funnel… top of funnel is fine, it's everything below that's broken.",
+  "Why did the marketer break up with the spreadsheet? Too many unresolved columns.",
+  "Fetching revenue data… please don't compare it to Q4 2024.",
+  "Aggregating by country… UAE is carrying the team again.",
+  "Almost there! Just deduplicating the duplicate deduplication.",
+];
+let _plJokeTimer = null;
+let _plBarVal = 0;
+let _plBarTimer = null;
+
+function showPreloader(){
+  const el = document.getElementById('preloader');
+  if(!el) return;
+  el.classList.add('active');
+  _plBarVal = 0;
+  document.getElementById('plBar').style.width = '0%';
+  _showNextJoke();
+  _animateBar();
+}
+
+function hidePreloader(){
+  const el = document.getElementById('preloader');
+  if(!el) return;
+  document.getElementById('plBar').style.width = '100%';
+  setTimeout(()=>{ el.classList.remove('active'); }, 400);
+  if(_plJokeTimer){ clearTimeout(_plJokeTimer); _plJokeTimer=null; }
+  if(_plBarTimer){ clearTimeout(_plBarTimer); _plBarTimer=null; }
+}
+
+function _showNextJoke(){
+  const el = document.getElementById('plJoke');
+  if(!el) return;
+  const joke = PL_JOKES[Math.floor(Math.random()*PL_JOKES.length)];
+  el.style.opacity = '0';
+  setTimeout(()=>{ el.textContent = joke; el.style.opacity = '1'; }, 300);
+  _plJokeTimer = setTimeout(_showNextJoke, 3200);
+}
+
+function _animateBar(){
+  // Animate bar from 0 to ~85% over ~8s, then stall waiting for data
+  if(_plBarVal < 85){
+    _plBarVal += (85 - _plBarVal) * 0.04 + 0.3;
+    document.getElementById('plBar').style.width = Math.min(_plBarVal, 85) + '%';
+    _plBarTimer = setTimeout(_animateBar, 120);
+  }
+}
+/* ===== END PRELOADER ===== */
+
 async function doLogin(){
   const u=document.getElementById('userSel').value;
   const p=document.getElementById('pwdInput').value;
@@ -501,9 +620,10 @@ async function doLogin(){
   if(!u){errEl.textContent='Please select a user';errEl.style.display='block';return;}
   if(p!==PWD){errEl.textContent='Invalid password';errEl.style.display='block';return;}
   const btn=document.querySelector('.login-box button');
-  btn.textContent='Loading data...';btn.disabled=true;
-  if(!dataLoaded)await loadData();
+  btn.textContent='Loading...';btn.disabled=true;
+  if(!dataLoaded){showPreloader();await loadData();}
   await loadActions();
+  hidePreloader();
   btn.textContent='Sign In';btn.disabled=false;
   if(!dataLoaded){document.getElementById('loginErr').textContent='Failed to load data';document.getElementById('loginErr').style.display='block';return;}
   curUser=USERS[u];curUser.id=u;
