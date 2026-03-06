@@ -16,19 +16,17 @@ export default async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
 
   try {
-    // DB has ~11500 rows; fetch in parallel pages of 3000 (5 pages = 15000, covers all gaps)
-    const pageSize = 3000;
-    const pages = 5;
+    // Supabase REST caps at 1000 rows per request regardless of limit parameter.
+    // DB has ~11500 rows → need 12 parallel pages of 1000 rows each.
+    const PAGE = 1000;
+    const TOTAL_PAGES = 12; // covers up to 12000 rows
 
-    const promises = [];
-    for (let i = 0; i < pages; i++) {
-      promises.push(
-        supabase
-          .from('dashboard_events')
-          .select('org,name,country,type,event_id,date,year,rev,mkt,share')
-          .range(i * pageSize, (i + 1) * pageSize - 1)
-      );
-    }
+    const promises = Array.from({ length: TOTAL_PAGES }, (_, i) =>
+      supabase
+        .from('dashboard_events')
+        .select('org,name,country,type,event_id,date,year,rev,mkt,share')
+        .range(i * PAGE, (i + 1) * PAGE - 1)
+    );
 
     const results = await Promise.all(promises);
 
