@@ -1710,33 +1710,73 @@ function renderCountriesRaw(){
   const p=document.getElementById('pane-countries-raw');
   if(!p)return;
 
-  /* ---- Embedded monthly data (37 months: Jan 2023 – Jan 2026) ---- */
-  const CR_MONTHS=['Jan 2023','Feb 2023','Mar 2023','Apr 2023','May 2023','Jun 2023','Jul 2023','Aug 2023','Sep 2023','Oct 2023','Nov 2023','Dec 2023','Jan 2024','Feb 2024','Mar 2024','Apr 2024','May 2024','Jun 2024','Jul 2024','Aug 2024','Sep 2024','Oct 2024','Nov 2024','Dec 2024','Jan 2025','Feb 2025','Mar 2025','Apr 2025','May 2025','Jun 2025','Jul 2025','Aug 2025','Sep 2025','Oct 2025','Nov 2025','Dec 2025','Jan 2026'];
-
-  const CR_DATA={
-    'UAE':{cur:'AED',
-      tick:[47059415.5,38621484.17,63434268.7,42779578.62,62394993.38,65978847.55,87165408.18,97440042.4,85975813.29,143524041.9,121041555.3,158271527,81706580.65,66898162.3,100497498.4,86028748.98,118756461.9,127219568.5,167748547.8,192011580.2,142127673.7,165124413.7,186948619.4,295695225.1,115617619.5,100540888.3,165261547.5,134434083.5,202977213.6,222009427.8,253200614.2,274249985.1,213462209.8,167587273,144966947.9,236973497.9,69676001.2],
-      mkt:[213684.63,178249.21,283706.39,220741.03,399697.52,368539.41,606703.11,543553.55,583558.34,974047.2,874636.84,1112978.4,698869.27,576516.88,891225.49,769600.17,973048.23,1044804.15,1249019.14,1499695.07,1249490.41,1432875.44,1576745.54,2188017.73,999745.28,821920.03,1421831.07,1052225.45,1551003.1,1556688.72,1786920.52,1930613.18,797311.45,1377892.57,1344852.27,1403022.29,671081.45],
-      pmss:[0.004540,0.004616,0.004473,0.005159,0.006406,0.005586,0.006961,0.005579,0.006788,0.006787,0.007225,0.007031,0.008553,0.008618,0.008868,0.008947,0.008193,0.008213,0.007447,0.007810,0.008791,0.008677,0.008435,0.007399,0.008647,0.008175,0.008603,0.007826,0.007640,0.007012,0.007058,0.007037,0.003734,0.008222,0.009277,0.005919,0.009631]},
-    'Bahrain':{cur:'BHD',
-      tick:[468066.3,398476.94,695823.18,544090.56,799978.37,871254.64,1177649.11,1239479.28,1015619.77,1464578.56,1286462.39,1600082.1,827621.5,701093.26,1099268.68,992609.13,1323408.98,1415685.96,1685477.73,1880283.9,1430093.28,1700665.55,1888481.33,2620832.28,1060555.3,930804.56,1519895.88,1241892.59,1853703.59,1945965.98,2219843.32,2411082.05,1861684.03,1472099.8,1329279.85,2044408.97,600064.1],
-      mkt:[null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,3152.01,3533.9,3208.41,4066.46,3818.91,4924.38,1736.07],
-      pmss:[null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,0.001419,0.001465,0.001724,0.002763,0.002873,0.002409,0.002893]},
-    'Saudi Arabia':{cur:'SAR',
-      tick:[6609494.33,5526041.63,9469046.84,7580003.91,10618403.59,12020750.97,16614543.29,18220513.55,14869003.12,22272050.53,19481636.44,24219965.63,12741430.03,10660453.66,17012800.93,14823127.05,20371965.84,21916948.75,26606501.59,30039609.46,22735748.72,26823513.53,29874059.93,41677026.24,17087847.62,14836133.96,24096793.51,19765782.49,29613785.57,30976380.3,35349625.52,38696558.34,29862048.4,23502780.88,21208668.5,32635023.34,9606268.04],
-      mkt:[null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,47742.97,56083.7,49016.77,64891.48,60967.97,78736.03,27759.08],
-      pmss:[null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,0.001351,0.001449,0.001642,0.002761,0.002875,0.002413,0.002890]},
-    'Oman':{cur:'OMR',
-      tick:[null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null],
-      mkt:[null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null],
-      pmss:[null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null]},
-    'Qatar':{cur:'QAR',
-      tick:[null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null],
-      mkt:[null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null],
-      pmss:[null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null]}
+  /* ---- Build CR_DATA dynamically from RAW_EVENTS (loaded from Supabase) ---- */
+  const COUNTRY_MAP={
+    'United Arab Emirates':{key:'UAE', cur:'AED', flag:'🇦🇪'},
+    'Bahrain':{key:'Bahrain', cur:'BHD', flag:'🇧🇭'},
+    'Saudi Arabia':{key:'Saudi Arabia', cur:'SAR', flag:'🇸🇦'},
+    'Oman':{key:'Oman', cur:'OMR', flag:'🇴🇲'},
+    'Qatar':{key:'Qatar', cur:'QAR', flag:'🇶🇦'}
   };
 
+  /* Generate all months from Jan 2023 to current month */
+  function genMonths(){
+    const months=[];
+    const start=new Date(2023,0,1);
+    const now=new Date();
+    const end=new Date(now.getFullYear(),now.getMonth(),1);
+    let d=new Date(start);
+    while(d<=end){
+      const label=d.toLocaleString('en-GB',{month:'short',year:'numeric'});
+      const key=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+      months.push({label,key});
+      d.setMonth(d.getMonth()+1);
+    }
+    return months;
+  }
+  const ALL_MONTHS=genMonths();
+  const CR_MONTHS=ALL_MONTHS.map(m=>m.label);
+  const MONTH_KEYS=ALL_MONTHS.map(m=>m.key);
+
+  /* Aggregate RAW_EVENTS by country+month */
+  const agg={};
+  Object.values(COUNTRY_MAP).forEach(({key,cur})=>{
+    agg[key]={cur,tick:new Array(ALL_MONTHS.length).fill(null),mkt:new Array(ALL_MONTHS.length).fill(null)};
+  });
+
+  /* Use RAW_EVENTS (already in memory from Supabase load) */
+  const eventsToUse=typeof RAW_EVENTS!=='undefined'?RAW_EVENTS:[];
+  eventsToUse.forEach(e=>{
+    const cm=COUNTRY_MAP[e.country];
+    if(!cm)return;
+    if(e.type!=='event')return; /* only events, not attractions */
+    const d=new Date(e.date);
+    if(isNaN(d))return;
+    const mKey=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+    const idx=MONTH_KEYS.indexOf(mKey);
+    if(idx===-1)return;
+    const bucket=agg[cm.key];
+    const rev=parseFloat(e.rev)||0;
+    const mkt=parseFloat(e.mkt)||0;
+    if(rev>0){bucket.tick[idx]=(bucket.tick[idx]||0)+rev;}
+    if(mkt>0){bucket.mkt[idx]=(bucket.mkt[idx]||0)+mkt;}
+  });
+
+  /* Calculate PMSS = mkt/tick per month */
+  Object.values(agg).forEach(d=>{
+    d.pmss=d.tick.map((t,i)=>{
+      const m=d.mkt[i];
+      if(!t||!m)return null;
+      return m/t;
+    });
+    /* Zero-fill to null for cleaner charts */
+    d.tick=d.tick.map(v=>v===0?null:v);
+    d.mkt=d.mkt.map(v=>v===0?null:v);
+  });
+
+  const CR_DATA=agg;
   const countries=Object.keys(CR_DATA);
+
   const fmtCR=(n,cur)=>{
     if(n==null)return'-';
     if(Math.abs(n)>=1e9)return cur+' '+(n/1e9).toFixed(2)+'B';
@@ -1747,25 +1787,30 @@ function renderCountriesRaw(){
   const sumNonNull=arr=>arr.reduce((s,v)=>s+(v==null?0:v),0);
   const avgNonNull=arr=>{const v=arr.filter(x=>x!=null);return v.length?v.reduce((s,x)=>s+x,0)/v.length:null;};
 
-  /* Selectors for country + time range */
   const selId='crCountrySel';
   const rangeId='crRangeSel';
 
+  /* Country display names with flags */
+  const COUNTRY_LABELS={
+    'UAE':'🇦🇪 UAE (AED)',
+    'Bahrain':'🇧🇭 Bahrain (BHD)',
+    'Saudi Arabia':'🇸🇦 Saudi Arabia (SAR)',
+    'Oman':'🇴🇲 Oman (OMR)',
+    'Qatar':'🇶🇦 Qatar (QAR)'
+  };
+
   p.innerHTML=`
     <div style="padding:20px">
-      <h3 style="margin-bottom:16px">🌍 Countries RAW — Monthly Performance</h3>
+      <h3 style="margin-bottom:4px">🌍 Countries RAW — Monthly Performance</h3>
+      <p style="color:var(--text3);font-size:12px;margin-bottom:16px">Live data from Supabase dashboard_events • ${eventsToUse.length.toLocaleString()} events loaded</p>
       <div style="display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap;align-items:center">
         <label style="color:var(--text2);font-size:13px">Country:</label>
         <select id="${selId}" style="background:var(--surface);color:var(--text1);border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-size:13px">
-          <option value="UAE">🇦🇪 UAE (AED)</option>
-          <option value="Bahrain">🇧🇭 Bahrain (BHD)</option>
-          <option value="Saudi Arabia">🇸🇦 Saudi Arabia (SAR)</option>
-          <option value="Oman">🇴🇲 Oman (OMR)</option>
-          <option value="Qatar">🇶🇦 Qatar (QAR)</option>
+          ${countries.map(c=>`<option value="${c}">${COUNTRY_LABELS[c]||c}</option>`).join('')}
         </select>
         <label style="color:var(--text2);font-size:13px">Period:</label>
         <select id="${rangeId}" style="background:var(--surface);color:var(--text1);border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-size:13px">
-          <option value="all">All (Jan 2023 – Jan 2026)</option>
+          <option value="all">All (Jan 2023 – present)</option>
           <option value="12">Last 12 months</option>
           <option value="24">Last 24 months</option>
         </select>
@@ -1781,7 +1826,7 @@ function renderCountriesRaw(){
       </div>
       <div class="seg-card" style="margin-bottom:20px"><h4 style="margin-bottom:10px">PMSS % (Marketing / Ticketing)</h4><div style="height:240px"><canvas id="crPmssChart"></canvas></div></div>
 
-      <!-- Data table (last 12 months) -->
+      <!-- Data table -->
       <div class="seg-card">
         <h4 style="margin-bottom:12px">Monthly Detail Table</h4>
         <div style="overflow-x:auto"><table id="crTable" style="width:100%;border-collapse:collapse;font-size:12px"></table></div>
@@ -1795,7 +1840,6 @@ function renderCountriesRaw(){
     const d=CR_DATA[country];
     const cur=d.cur;
 
-    /* slice data by range */
     let months=CR_MONTHS, tick=d.tick, mkt=d.mkt, pmss=d.pmss;
     if(rangeVal!=='all'){
       const n=parseInt(rangeVal);
@@ -1805,7 +1849,6 @@ function renderCountriesRaw(){
       pmss=pmss.slice(-n);
     }
 
-    /* KPIs */
     const totalTick=sumNonNull(tick);
     const totalMkt=sumNonNull(mkt);
     const avgPmss=avgNonNull(pmss);
@@ -1833,7 +1876,6 @@ function renderCountriesRaw(){
       </div>
     `;
 
-    /* destroy old charts */
     ['crTickChart','crMktChart','crPmssChart'].forEach(id=>{
       if(charts['cr_'+id]){charts['cr_'+id].destroy();delete charts['cr_'+id];}
     });
@@ -1846,7 +1888,6 @@ function renderCountriesRaw(){
 
     charts['cr_crPmssChart']=new Chart(document.getElementById('crPmssChart'),{type:'line',data:{labels:months,datasets:[{label:'PMSS %',data:pmss.map(v=>v!=null?parseFloat((v*100).toFixed(4)):null),borderColor:'#F59E0B',backgroundColor:'rgba(245,158,11,0.12)',fill:true,tension:0.3,pointRadius:2,spanGaps:true}]},options:{...chartOpts,scales:{...chartOpts.scales,y:{...chartOpts.scales.y,ticks:{...chartOpts.scales.y.ticks,callback:v=>v.toFixed(3)+'%'}}},plugins:{...chartOpts.plugins,tooltip:{callbacks:{label:ctx=>ctx.raw!=null?ctx.raw.toFixed(4)+'%':'-'}}}}});
 
-    /* table */
     const tbl=document.getElementById('crTable');
     let rows=`<thead><tr style="border-bottom:1px solid var(--border)">
       <th style="text-align:left;padding:6px 8px;color:var(--text2)">Month</th>
