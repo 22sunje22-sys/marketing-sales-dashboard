@@ -16,10 +16,10 @@ export default async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
 
   try {
-    // Supabase REST caps at 1000 rows per request regardless of limit parameter.
-    // DB has ~11500 rows → need 12 parallel pages of 1000 rows each.
+    // Supabase REST API caps responses at 1000 rows regardless of limit parameter.
+    // DB has ~11500 rows -> fetch 12 parallel pages of 1000 rows each = 12000 slots.
     const PAGE = 1000;
-    const TOTAL_PAGES = 12; // covers up to 12000 rows
+    const TOTAL_PAGES = 12;
 
     const promises = Array.from({ length: TOTAL_PAGES }, (_, i) =>
       supabase
@@ -32,27 +32,15 @@ export default async function handler(req, res) {
 
     let allRows = [];
     for (const { data, error } of results) {
-      if (error) {
-        console.error('Supabase page error:', error.message);
-        continue;
-      }
+      if (error) { console.error('Page error:', error.message); continue; }
       if (data && data.length > 0) allRows = allRows.concat(data);
     }
 
-    const transformed = allRows.map(row => ({
-      org: row.org,
-      name: row.name,
-      country: row.country,
-      type: row.type,
-      id: row.event_id,
-      date: row.date,
-      year: row.year,
-      rev: row.rev,
-      mkt: row.mkt,
-      share: row.share
-    }));
-
-    return res.status(200).json(transformed);
+    return res.status(200).json(allRows.map(row => ({
+      org: row.org, name: row.name, country: row.country, type: row.type,
+      id: row.event_id, date: row.date, year: row.year,
+      rev: row.rev, mkt: row.mkt, share: row.share
+    })));
   } catch (err) {
     console.error('Server error:', err);
     return res.status(500).json({ error: 'Internal server error' });
