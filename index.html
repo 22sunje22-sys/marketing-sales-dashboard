@@ -561,12 +561,21 @@ async function loadData(){
 }
 const PWD='salesdash';
 const USERS={alex:{name:'Alex',filter:null},taha:{name:'Taha',filter:null},kamila:{name:'Kamilla',filter:'United Arab Emirates',mode:'only'},mohammed:{name:'Mohammed',filter:'United Arab Emirates',mode:'exclude'}};
+const COUNTRY_MARKETING_OVERRIDE={
+  "United Arab Emirates":{"2023-02":426416.79,"2023-03":229731.18,"2023-04":390264.29,"2023-05":403073.52,"2023-06":15000,"2023-07":153262.5,"2023-08":327706.8,"2023-09":1031744.14,"2023-10":941163.19,"2023-11":901201.73,"2023-12":843562.41,"2024-01":798263.4,"2024-02":585040.31,"2024-03":870723.6,"2024-04":806446.5,"2024-05":401341,"2024-06":418124.7,"2024-07":275429.71,"2024-08":713243.16,"2024-09":1482374.21,"2024-10":1665092.51,"2024-11":2023802.495,"2024-12":1982319.71,"2025-01":649173.12,"2025-02":952940.47,"2025-03":504953.15,"2025-04":959420.68,"2025-05":609251.71,"2025-06":413763.5,"2025-07":405710,"2025-08":487048.22,"2025-09":806496.8,"2025-10":2079123.81,"2025-11":1504352.27,"2025-12":1551075.77,"2026-01":981152.45,"2026-02":681981.87},
+  "Bahrain":{"2023-01":0,"2023-02":0,"2023-03":1013.729996,"2023-04":5360,"2023-05":500,"2023-06":5500,"2023-07":5000,"2023-08":10500,"2023-09":7350,"2023-10":300,"2023-11":5000,"2023-12":1373.640015,"2024-01":3350.549988,"2024-02":3254.549988,"2024-03":2081.820007,"2024-04":581.8200073,"2024-05":2255.14,"2024-06":1409.09,"2024-07":381,"2024-08":1954.55,"2024-09":2863.636364,"2024-10":1994.56,"2024-11":2268,"2024-12":5564.45,"2025-01":2568,"2025-02":1049.6,"2025-03":400,"2025-04":2170.81,"2025-05":5252.03,"2025-06":4200.01,"2025-07":1227.01,"2025-08":3011.01,"2025-09":3100,"2025-10":2688,"2025-11":2739.99,"2025-12":8142.27,"2026-01":855.46,"2026-02":1993.64},
+  "Saudi Arabia":{"2023-01":0,"2023-02":0,"2023-03":3000,"2023-04":0,"2023-05":15000,"2023-06":540565,"2023-07":10000,"2023-08":26043.48047,"2023-09":7200,"2023-10":37430,"2023-11":0,"2023-12":132695.6504,"2024-01":13695.65039,"2024-02":15652.16998,"2024-03":54051,"2024-04":25000,"2024-05":24226.09,"2024-06":11100,"2024-07":40935,"2024-08":76800,"2024-09":85000,"2024-10":117688.5,"2024-11":180020.44,"2024-12":121535.48,"2025-01":53820,"2025-02":26854.6,"2025-03":25010,"2025-04":108293.85,"2025-05":33897,"2025-06":29118,"2025-07":39956.75,"2025-08":29861.31,"2025-09":251436,"2025-10":74148,"2025-11":443798.78,"2025-12":135024.6,"2026-01":509500.51,"2026-02":104260.33},
+  "Oman":{"2023-01":0,"2023-02":0,"2023-03":0,"2023-04":0,"2023-05":0,"2023-06":0,"2023-07":0,"2023-08":0,"2023-09":0,"2023-10":0,"2023-11":0,"2023-12":0,"2024-01":177.2700043,"2024-02":88.18000031,"2024-03":0,"2024-04":0,"2024-05":819.55,"2024-06":0,"2024-07":0,"2024-08":0,"2024-09":0,"2024-10":5944,"2024-11":6400,"2024-12":600,"2025-01":297,"2025-02":25.2,"2025-03":0,"2025-04":0,"2025-05":0,"2025-06":50,"2025-07":0,"2025-08":0,"2025-09":271,"2025-10":2795.47,"2025-11":2978.44,"2025-12":912,"2026-01":0,"2026-02":285.71},
+  "Qatar":{"2023-01":0,"2023-02":0,"2023-03":0,"2023-04":0,"2023-05":0,"2023-06":0,"2023-07":0,"2023-08":0,"2023-09":0,"2023-10":0,"2023-11":0,"2023-12":0,"2024-01":0,"2024-02":0,"2024-03":0,"2024-04":0,"2024-05":0,"2024-06":0,"2024-07":0,"2024-08":0,"2024-09":0,"2024-10":0,"2024-11":28054.65,"2024-12":29318.63,"2025-01":0,"2025-02":0,"2025-03":0,"2025-04":0,"2025-05":0,"2025-06":15000,"2025-07":0,"2025-08":0,"2025-09":9000,"2025-10":35000,"2025-11":21831.44,"2025-12":21805.65,"2026-01":0,"2026-02":0}
+};
+const COUNTRY_TICKETING_OVERRIDE={"United Arab Emirates":{"2023-01":60431200.88,"2023-02":38224725.41,"2023-03":28518711.64,"2023-04":34096789.42,"2023-05":29739834.56,"2023-06":17898237.69,"2023-07":9057389.56,"2023-08":15522624.16,"2023-09":24845174.69,"2023-10":49059666.7,"2023-11":87617862.56,"2023-12":101304034.4,"2024-01":47303591.04,"2024-02":44266346.88,"2024-03":42527156.47,"2024-04":52133439.94,"2024-05":100821344.6,"2024-06":31887398.29,"2024-07":16656891.5,"2024-08":66278030.09,"2024-09":92850129.19,"2024-10":136298786.5,"2024-11":158788293.2,"2024-12":272924197.1,"2025-01":111766593.4,"2025-02":74998797.6,"2025-03":64276367.28,"2025-04":104546562.9,"2025-05":74861441.16,"2025-06":54723890.87,"2025-07":61337517.54,"2025-08":134544462.5,"2025-09":213462209.8,"2025-10":213536176.1,"2025-11":244345617.2,"2025-12":437836790.4,"2026-01":122221819.4,"2026-02":86962094.98},"Bahrain":{"2023-01":491471.26,"2023-02":811062.36,"2023-03":314541.83,"2023-04":402517.69,"2023-05":413700.84,"2023-06":236274.38,"2023-07":108027.29,"2023-08":1042519.05,"2023-09":431670.57,"2023-10":521807.39,"2023-11":3293959.53,"2023-12":1451031.84,"2024-01":848893.22,"2024-02":823560.11,"2024-03":239381.14,"2024-04":330242.06,"2024-05":1087528.21,"2024-06":594975.7,"2024-07":1376784.75,"2024-08":531215.73,"2024-09":480813.69,"2024-10":993696.26,"2024-11":967779.01,"2024-12":1998682.02,"2025-01":2921982.42,"2025-02":416168.92,"2025-03":648481.39,"2025-04":1073630.97,"2025-05":1607176.08,"2025-06":706434.03,"2025-07":510609.87,"2025-08":1463566.74,"2025-09":1943103.99,"2025-10":2214290.74,"2025-11":1026950.3,"2025-12":2727161.43,"2026-01":4004622.46,"2026-02":3742102.91},"Saudi Arabia":{"2023-01":39471513.51,"2023-02":12155923.16,"2023-03":4100870.85,"2023-04":18593231.1,"2023-05":8984265.91,"2023-06":12773726.66,"2023-07":37764075.8,"2023-08":27674479.07,"2023-09":7309621.78,"2023-10":5953956.08,"2023-11":6653961.52,"2023-12":7632309.65,"2024-01":1540765.56,"2024-02":3414722.31,"2024-03":6663529.44,"2024-04":2783920.65,"2024-05":11823082.43,"2024-06":6450218.9,"2024-07":11986317.71,"2024-08":15564640.3,"2024-09":16076145.95,"2024-10":21890412.64,"2024-11":34710778.16,"2024-12":25572134.7,"2025-01":26401948.66,"2025-02":21011717.58,"2025-03":11593908.03,"2025-04":23343696.25,"2025-05":18892943.4,"2025-06":24662973.12,"2025-07":44961139.98,"2025-08":54831777.36,"2025-09":48007416.38,"2025-10":73758505,"2025-11":56299189.58,"2025-12":42013210.92,"2026-01":23636244.37,"2026-02":7635771.85},"Oman":{"2023-01":11771.23,"2023-02":8461.12,"2023-03":20670.55,"2023-04":20155,"2023-05":18866.75,"2023-06":5810.64,"2023-07":6409,"2023-08":5374.32,"2023-09":27201.44,"2023-10":3186.54,"2023-11":1637.96,"2023-12":9318.65,"2024-01":10380.48,"2024-02":10306.32,"2024-03":4959.6,"2024-04":79652.38,"2024-05":191225.22,"2024-06":60771.96,"2024-07":26257.34,"2024-08":28880.16,"2024-09":79242.13,"2024-10":204686.37,"2024-11":11634.04,"2024-12":334848.39,"2025-01":722231.87,"2025-02":164682.23,"2025-03":32955.73,"2025-04":125175.66,"2025-05":175119.89,"2025-06":13831.54,"2025-07":145951.13,"2025-08":376588.79,"2025-09":766124.1,"2025-10":434017.47,"2025-11":222724.35,"2025-12":2912565.15,"2026-01":459268.45,"2026-02":95653.06},"Qatar":{"2023-01":0,"2023-02":0,"2023-03":0,"2023-04":0,"2023-05":0,"2023-06":0,"2023-07":0,"2023-08":0,"2023-09":2659,"2023-10":2587,"2023-11":0,"2023-12":0,"2024-01":0,"2024-02":0,"2024-03":0,"2024-04":0,"2024-05":10434,"2024-06":1164,"2024-07":0,"2024-08":1945668.26,"2024-09":1698690.74,"2024-10":7335927.73,"2024-11":3216270.61,"2024-12":16180775.43,"2025-01":13644527.08,"2025-02":5349097.75,"2025-03":417663.57,"2025-04":10655100.35,"2025-05":1804264.82,"2025-06":239040.26,"2025-07":2325211.72,"2025-08":3016070.31,"2025-09":9320079.96,"2025-10":19227678.65,"2025-11":14594329.99,"2025-12":18029285.34,"2026-01":10569937.31,"2026-02":26991483.57}};
 
 let curUser=null, ORGS=[], EVENTS=[], charts={};
 let orgAssign={}, evtAssign={};
 let ORG_ACTIONS=[], ORG_ACTIONS_SET=new Set();
 let ORG_MONTHLY={};
 let REPORT_MONTH_KEY='';
+let COUNTRY_SOURCE_QA=null;
 async function loadActions(){
   try{
     const res=await fetch(window.location.origin+'/api/actions');
@@ -616,17 +625,72 @@ function currentMonthKey(){
   const d=new Date();
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
 }
+function maxDataMonthKey(rows,onlyEvents=false){
+  let mx=null;
+  (rows||[]).forEach(e=>{
+    if(onlyEvents&&(e.type||'').toLowerCase()!=='event')return;
+    const mk=monthKeyFromRawDate(e.date);
+    if(!mk)return;
+    if(!isValidRevenuePoint(e.rev,e.mkt))return;
+    if(!mx||mk>mx)mx=mk;
+  });
+  return mx;
+}
 function isValidRevenuePoint(rev,mkt){
   return (parseFloat(rev)||0)>0 || (parseFloat(mkt)||0)>0;
 }
+function getCountryMarketingOverride(country,monthKey){
+  return null;
+}
+function getCountryTicketingOverride(country,monthKey){
+  return null;
+}
+function buildCountrySourceQa(events){
+  const countries=['United Arab Emirates','Bahrain','Saudi Arabia','Oman','Qatar'];
+  const nowKey=currentMonthKey();
+  const monthly={};
+  (events||[]).forEach(e=>{
+    if((e.type||'').toLowerCase()!=='event')return;
+    const mk=monthKeyFromRawDate(e.date);
+    if(!mk||mk>nowKey)return;
+    if(!isValidRevenuePoint(e.rev,e.mkt))return;
+    const c=e.country;
+    if(!countries.includes(c))return;
+    const k=`${c}||${mk}`;
+    if(!monthly[k])monthly[k]={tick:0,mkt:0};
+    monthly[k].tick+=(parseFloat(e.rev)||0);
+    monthly[k].mkt+=(parseFloat(e.mkt)||0);
+  });
+  let checked=0,mismatch=0,maxTickDiff=0,maxMktDiff=0;
+  const samples=[];
+  countries.forEach(c=>{
+    const keys=new Set([
+      ...Object.keys(COUNTRY_TICKETING_OVERRIDE[c]||{}),
+      ...Object.keys(COUNTRY_MARKETING_OVERRIDE[c]||{})
+    ]);
+    keys.forEach(mk=>{
+      checked++;
+      const got=monthly[`${c}||${mk}`]||{tick:0,mkt:0};
+      const et=getCountryTicketingOverride(c,mk)??0;
+      const em=getCountryMarketingOverride(c,mk)??0;
+      const td=Math.abs(got.tick-et);
+      const md=Math.abs(got.mkt-em);
+      if(td>1||md>1){
+        mismatch++;
+        if(samples.length<6)samples.push({country:c,month:mk,tickDiff:td,mktDiff:md});
+      }
+      if(td>maxTickDiff)maxTickDiff=td;
+      if(md>maxMktDiff)maxMktDiff=md;
+    });
+  });
+  return {checked,mismatch,maxTickDiff,maxMktDiff,samples};
+}
 function buildMonthlyCache(){
   ORG_MONTHLY={};
-  const nowKey=currentMonthKey();
   EVENTS.forEach(e=>{
     if((e.type||'').toLowerCase()!=='event')return;
     const mk=monthKeyFromRawDate(e.date);
     if(!mk)return;
-    if(mk>nowKey)return;
     if(!isValidRevenuePoint(e.rev,e.mkt))return;
     const org=e.org||'—';
     if(!ORG_MONTHLY[org])ORG_MONTHLY[org]={};
@@ -634,8 +698,7 @@ function buildMonthlyCache(){
     ORG_MONTHLY[org][mk].tick+=(parseFloat(e.rev)||0);
     ORG_MONTHLY[org][mk].mkt+=(parseFloat(e.mkt)||0);
   });
-  const d=new Date();d.setMonth(d.getMonth()-1);
-  const prevKey=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+  const prevKey=shiftMonthKey(maxDataMonthKey(EVENTS,true)||currentMonthKey(),-1)||currentMonthKey();
   const hasPrev=Object.values(ORG_MONTHLY).some(m=>((m[prevKey]?.tick||0)>0)||((m[prevKey]?.mkt||0)>0));
   if(hasPrev){REPORT_MONTH_KEY=prevKey;return;}
   const keys=[...new Set(Object.values(ORG_MONTHLY).flatMap(m=>Object.keys(m)))].sort();
@@ -680,6 +743,23 @@ const fmtPct=n=>n!=null?(n>0?'+':'')+n.toFixed(1)+'%':'-';
 const fmtCur=n=>{if(n==null)return'-';if(Math.abs(n)>=1e9)return'AED '+(n/1e9).toFixed(1)+'B';if(Math.abs(n)>=1e6)return'AED '+(n/1e6).toFixed(1)+'M';if(Math.abs(n)>=1e3)return'AED '+(n/1e3).toFixed(0)+'K';return'AED '+Math.round(n);};
 
 /* LOGIN */
+const AUTH_COOKIE='pl_dash_auth';
+const AUTH_TTL_MIN=30;
+function setAuthCookie(uid){
+  const expires=new Date(Date.now()+AUTH_TTL_MIN*60*1000).toUTCString();
+  document.cookie=`${AUTH_COOKIE}=${encodeURIComponent(uid)}; expires=${expires}; path=/; SameSite=Lax`;
+}
+function getAuthCookie(){
+  const parts=(document.cookie||'').split(';').map(s=>s.trim());
+  const pref=`${AUTH_COOKIE}=`;
+  const m=parts.find(p=>p.startsWith(pref));
+  if(!m)return null;
+  const uid=decodeURIComponent(m.slice(pref.length));
+  return USERS[uid]?uid:null;
+}
+function clearAuthCookie(){
+  document.cookie=`${AUTH_COOKIE}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; SameSite=Lax`;
+}
 
 /* ===== PRELOADER LOGIC ===== */
 const PL_JOKES = [
@@ -754,7 +834,13 @@ async function doLogin(){
   hidePreloader();
   btn.textContent='Sign In';btn.disabled=false;
   if(!dataLoaded){document.getElementById('loginErr').textContent='Failed to load data';document.getElementById('loginErr').style.display='block';return;}
+  completeLogin(u,true);
+}
+
+function completeLogin(u,track=true){
+  if(!USERS[u])return;
   curUser=USERS[u];curUser.id=u;
+  setAuthCookie(u);
   sess={tabs:new Set(),filters:0,searches:0,exports:0,orgsViewed:0,loginTime:new Date(),actions:[]};
   userAch=new Set();
   /* v2.9 — clear stale URL params + filters on fresh login */
@@ -773,7 +859,9 @@ async function doLogin(){
   document.getElementById('loginWrap').style.display='none';
   document.getElementById('app').style.display='block';
   document.getElementById('userBadge').textContent=curUser.name+(curUser.filter?(' • '+(curUser.mode==='only'?curUser.filter:'Non-'+curUser.filter)):'');
-  logVisit();logAction('login','logged in','');loadAchievements();
+  if(track){logVisit();logAction('login','logged in','');}
+  else{logAction('resume_session','cookie_resume','');}
+  loadAchievements();
   restoreFilters();
   switchTab('overview');
 }
@@ -789,7 +877,19 @@ function doLogout(){
   bulkSelected.clear();
   try{localStorage.removeItem('plDashFilters');}catch(e){}
   history.replaceState(null,'',location.pathname);
+  clearAuthCookie();
   curUser=null;
+}
+async function tryResumeSession(){
+  const uid=getAuthCookie();
+  if(!uid||curUser)return;
+  const errEl=document.getElementById('loginErr');
+  if(errEl)errEl.style.display='none';
+  if(!dataLoaded){showPreloader();await loadData();await loadActions();hidePreloader();}
+  if(!dataLoaded)return;
+  const sel=document.getElementById('userSel');
+  if(sel)sel.value=uid;
+  completeLogin(uid,false);
 }
 
 function initData(){
@@ -805,6 +905,7 @@ function initData(){
     if(!curUser.filter)return true;
     return curUser.mode==='only'?e.country===curUser.filter:e.country!==curUser.filter;
   });
+  COUNTRY_SOURCE_QA=null;
   buildMonthlyCache();
 }
 
@@ -1028,20 +1129,36 @@ function renderOverview(){
     return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
   };
   const monthlyByCountry={};
-  const nowKey=currentMonthKey();
+  const dataMaxKey=maxDataMonthKey(RAW_EVENTS,true);
   (RAW_EVENTS||[]).forEach(e=>{
     if((e.type||'').toLowerCase()!=='event')return;
     if(!scopeCountries.includes(e.country))return;
     const mk=monthKeyFromRawDate(e.date);
     if(!mk)return;
-    if(mk>nowKey)return;
+    if(dataMaxKey&&mk>dataMaxKey)return;
     if(!isValidRevenuePoint(e.rev,e.mkt))return;
     const k=`${e.country}||${mk}`;
     if(!monthlyByCountry[k])monthlyByCountry[k]={rev:0,mkt:0};
     monthlyByCountry[k].rev+=(parseFloat(e.rev)||0);
     monthlyByCountry[k].mkt+=(parseFloat(e.mkt)||0);
   });
-  const allMonthKeys=[...new Set((RAW_EVENTS||[]).filter(e=>(e.type||'').toLowerCase()==='event'&&scopeCountries.includes(e.country)).map(e=>monthKeyFromRawDate(e.date)).filter(mk=>mk&&mk<=nowKey))].sort();
+  const allMonthKeys=[...new Set((RAW_EVENTS||[]).filter(e=>(e.type||'').toLowerCase()==='event'&&scopeCountries.includes(e.country)).map(e=>monthKeyFromRawDate(e.date)).filter(mk=>mk&&(!dataMaxKey||mk<=dataMaxKey)))].sort();
+  // Use Countries RAW marketing-invoices series when available (1:1 with source file)
+  scopeCountries.forEach(c=>{
+    allMonthKeys.forEach(mk=>{
+      const tov=getCountryTicketingOverride(c,mk);
+      if(tov!=null){
+        const k=`${c}||${mk}`;
+        if(!monthlyByCountry[k])monthlyByCountry[k]={rev:0,mkt:0};
+        monthlyByCountry[k].rev=tov;
+      }
+      const ov=getCountryMarketingOverride(c,mk);
+      if(ov==null)return;
+      const k=`${c}||${mk}`;
+      if(!monthlyByCountry[k])monthlyByCountry[k]={rev:0,mkt:0};
+      monthlyByCountry[k].mkt=ov;
+    });
+  });
   const reportMonthKey=[...allMonthKeys].reverse().find(mk=>scopeCountries.some(c=>(monthlyByCountry[`${c}||${mk}`]?.mkt||0)>0))||allMonthKeys[allMonthKeys.length-1]||null;
   const reportLyKey=shiftMonthKey(reportMonthKey,-12);
   const monthLabel=(mk)=>{
@@ -2375,14 +2492,14 @@ function renderCountriesRaw(){
   }
   /* Use RAW_EVENTS (already in memory from Supabase load) */
   const eventsToUse=typeof RAW_EVENTS!=='undefined'?RAW_EVENTS:[];
-  const nowKey=currentMonthKey();
+  const dataMaxKey=maxDataMonthKey(eventsToUse,true);
   const maxMonthKey=eventsToUse.reduce((mx,e)=>{
     const cm=COUNTRY_MAP[e.country];
     if(!cm)return mx;
     if((e.type||'').toLowerCase()!=='event')return mx;
     const mk=monthKeyFromDateRaw(e.date);
     if(!mk)return mx;
-    if(mk>nowKey)return mx;
+    if(dataMaxKey&&mk>dataMaxKey)return mx;
     if(!isValidRevenuePoint(e.rev,e.mkt))return mx;
     return !mx||mk>mx?mk:mx;
   },null);
@@ -2403,7 +2520,7 @@ function renderCountriesRaw(){
     if((e.type||'').toLowerCase()!=='event')return; /* only events, not attractions */
     const mKey=monthKeyFromDateRaw(e.date);
     if(!mKey)return;
-    if(mKey>nowKey)return;
+    if(dataMaxKey&&mKey>dataMaxKey)return;
     if(!isValidRevenuePoint(e.rev,e.mkt))return;
     const idx=MONTH_KEYS.indexOf(mKey);
     if(idx===-1)return;
@@ -2412,6 +2529,26 @@ function renderCountriesRaw(){
     const mkt=parseFloat(e.mkt)||0;
     if(rev>0){bucket.tick[idx]=(bucket.tick[idx]||0)+rev;}
     if(mkt>0){bucket.mkt[idx]=(bucket.mkt[idx]||0)+mkt;}
+  });
+
+  // Override marketing with file-consistent countries series where available
+  const KEY_TO_COUNTRY={
+    'UAE':'United Arab Emirates',
+    'Bahrain':'Bahrain',
+    'Saudi Arabia':'Saudi Arabia',
+    'Oman':'Oman',
+    'Qatar':'Qatar'
+  };
+  Object.keys(agg).forEach(k=>{
+    const full=KEY_TO_COUNTRY[k];
+    if(!full)return;
+    MONTH_KEYS.forEach((mk,idx)=>{
+      const tov=getCountryTicketingOverride(full,mk);
+      if(tov!=null)agg[k].tick[idx]=tov;
+      const ov=getCountryMarketingOverride(full,mk);
+      if(ov==null)return;
+      agg[k].mkt[idx]=ov;
+    });
   });
 
   /* Calculate PMSS = mkt/tick per month */
@@ -2458,6 +2595,10 @@ function renderCountriesRaw(){
     <div style="padding:20px">
       <h3 style="margin-bottom:4px">🌍 Countries RAW — Monthly Performance</h3>
       <p style="color:var(--text3);font-size:12px;margin-bottom:16px">Live data from Supabase dashboard_events • ${eventsToUse.length.toLocaleString()} events loaded</p>
+      ${COUNTRY_SOURCE_QA&&COUNTRY_SOURCE_QA.mismatch>0?`<div style="margin:-6px 0 14px;padding:10px 12px;border:1px solid rgba(245,158,11,0.45);background:rgba(245,158,11,0.08);border-radius:8px;color:#FCD34D;font-size:12px">
+        Source QA: dashboard_events monthly sums diverge from file baseline in ${COUNTRY_SOURCE_QA.mismatch}/${COUNTRY_SOURCE_QA.checked} country-month points.
+        Max diff: ticketing ${fmtCur(COUNTRY_SOURCE_QA.maxTickDiff)} • marketing ${fmtCur(COUNTRY_SOURCE_QA.maxMktDiff)}.
+      </div>`:''}
       <div style="display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap;align-items:center">
         <label style="color:var(--text2);font-size:13px">Country:</label>
         <select id="${selId}" style="background:var(--surface);color:var(--text1);border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-size:13px">
@@ -2683,6 +2824,7 @@ async function renderTeam(){
     p.innerHTML=html+`<p style="color:var(--red)">Error loading team data: ${e.message}</p>`;
   }
 }
+tryResumeSession();
 </script>
 </body>
 </html>
