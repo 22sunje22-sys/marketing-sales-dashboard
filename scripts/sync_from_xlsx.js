@@ -66,7 +66,7 @@ function buildEventRows(rows) {
   for (let r = 5; r < rows.length; r++) {
     const row = rows[r] || [];
     const orgRaw = text(row[3]);
-    const orgSumUp = text(row[13]);
+    const orgSumUp = text(row[0]);
     const org = orgSumUp || orgRaw;
     const name = text(row[4]);
     const country = text(row[5]);
@@ -99,50 +99,6 @@ function buildEventRows(rows) {
   }
 
   return out;
-}
-
-function normalizeCountryMonth(rows, targets) {
-  const byKey = new Map();
-  for (const r of rows) {
-    const key = `${text(r.country)}||${text(r.date).slice(0, 7)}`;
-    if (!byKey.has(key)) byKey.set(key, []);
-    byKey.get(key).push(r);
-  }
-
-  for (const [country, months] of Object.entries(targets)) {
-    for (const [mk, exp] of Object.entries(months)) {
-      const key = `${country}||${mk}`;
-      const bucket = byKey.get(key) || [];
-      if (!bucket.length) continue;
-
-      const eventRows = bucket.filter((r) => text(r.type).toLowerCase() === 'event');
-      const sumRev = eventRows.reduce((s, r) => s + num(r.rev), 0);
-      if (eventRows.length && Number.isFinite(exp.rev)) {
-        if (sumRev > 0) {
-          const f = exp.rev / sumRev;
-          eventRows.forEach((r) => { r.rev = num(r.rev) * f; });
-        } else if (exp.rev > 0) {
-          eventRows[0].rev = exp.rev;
-        }
-      }
-
-      const sumMkt = eventRows.reduce((s, r) => s + num(r.mkt), 0);
-      if (Number.isFinite(exp.mkt)) {
-        if (sumMkt > 0) {
-          const f = exp.mkt / sumMkt;
-          eventRows.forEach((r) => { r.mkt = num(r.mkt) * f; });
-        } else if (exp.mkt > 0) {
-          if (eventRows.length) eventRows[0].mkt = exp.mkt;
-        }
-      }
-
-      bucket.forEach((r) => {
-        const rv = num(r.rev);
-        const mv = num(r.mkt);
-        r.share = rv > 0 ? mv / rv : 0;
-      });
-    }
-  }
 }
 
 function buildEventAggByOrganizer(eventRows) {
@@ -296,8 +252,10 @@ function aggregateCountryMonth(rows) {
     if (!country || !key) continue;
     if (!agg[country]) agg[country] = {};
     if (!agg[country][key]) agg[country][key] = { rev: 0, mkt: 0 };
-    if (text(e.type).toLowerCase() === 'event') agg[country][key].rev += num(e.rev);
-    agg[country][key].mkt += num(e.mkt);
+    if (text(e.type).toLowerCase() === 'event') {
+      agg[country][key].rev += num(e.rev);
+      agg[country][key].mkt += num(e.mkt);
+    }
   }
   return agg;
 }
@@ -311,7 +269,6 @@ async function main() {
 
   const eventRows = buildEventRows(evRowsRaw);
   const expectedCountry = parseCountriesRawTargets(crRowsRaw);
-  normalizeCountryMonth(eventRows, expectedCountry);
   const eventAggByOrg = buildEventAggByOrganizer(eventRows);
   console.log('Prepared dashboard_events rows:', eventRows.length);
 

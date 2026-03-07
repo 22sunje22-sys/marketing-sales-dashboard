@@ -1129,37 +1129,36 @@ function renderOverview(){
     return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
   };
   const monthlyByCountry={};
+  const germanyMktAllByMonth={};
   const dataMaxKey=maxDataMonthKey(RAW_EVENTS,true);
   (RAW_EVENTS||[]).forEach(e=>{
-    if((e.type||'').toLowerCase()!=='event')return;
-    if(!scopeCountries.includes(e.country))return;
     const mk=monthKeyFromRawDate(e.date);
     if(!mk)return;
     if(dataMaxKey&&mk>dataMaxKey)return;
     if(!isValidRevenuePoint(e.rev,e.mkt))return;
+    if((e.country||'')==='Germany'){
+      germanyMktAllByMonth[mk]=(germanyMktAllByMonth[mk]||0)+(parseFloat(e.mkt)||0);
+    }
+    if(!scopeCountries.includes(e.country))return;
     const k=`${e.country}||${mk}`;
-    if(!monthlyByCountry[k])monthlyByCountry[k]={rev:0,mkt:0};
+    if(!monthlyByCountry[k])monthlyByCountry[k]={rev:0,mktEvent:0,mktAll:0};
+    monthlyByCountry[k].mktAll+=(parseFloat(e.mkt)||0);
+    if((e.type||'').toLowerCase()!=='event')return;
     monthlyByCountry[k].rev+=(parseFloat(e.rev)||0);
-    monthlyByCountry[k].mkt+=(parseFloat(e.mkt)||0);
+    monthlyByCountry[k].mktEvent+=(parseFloat(e.mkt)||0);
   });
-  const allMonthKeys=[...new Set((RAW_EVENTS||[]).filter(e=>(e.type||'').toLowerCase()==='event'&&scopeCountries.includes(e.country)).map(e=>monthKeyFromRawDate(e.date)).filter(mk=>mk&&(!dataMaxKey||mk<=dataMaxKey)))].sort();
-  // Use Countries RAW marketing-invoices series when available (1:1 with source file)
-  scopeCountries.forEach(c=>{
-    allMonthKeys.forEach(mk=>{
-      const tov=getCountryTicketingOverride(c,mk);
-      if(tov!=null){
-        const k=`${c}||${mk}`;
-        if(!monthlyByCountry[k])monthlyByCountry[k]={rev:0,mkt:0};
-        monthlyByCountry[k].rev=tov;
-      }
-      const ov=getCountryMarketingOverride(c,mk);
-      if(ov==null)return;
-      const k=`${c}||${mk}`;
-      if(!monthlyByCountry[k])monthlyByCountry[k]={rev:0,mkt:0};
-      monthlyByCountry[k].mkt=ov;
-    });
-  });
-  const reportMonthKey=[...allMonthKeys].reverse().find(mk=>scopeCountries.some(c=>(monthlyByCountry[`${c}||${mk}`]?.mkt||0)>0))||allMonthKeys[allMonthKeys.length-1]||null;
+  const allMonthKeys=[...new Set((RAW_EVENTS||[]).filter(e=>scopeCountries.includes(e.country)).map(e=>monthKeyFromRawDate(e.date)).filter(mk=>mk&&(!dataMaxKey||mk<=dataMaxKey)))].sort();
+  const countryMonthMkt=(country,mk)=>{
+    const v=monthlyByCountry[`${country}||${mk}`]||{mktAll:0,mktEvent:0};
+    if(country==='United Arab Emirates'){
+      if(mk==='2025-02')return v.mktEvent||0;
+      let out=v.mktAll||0;
+      if(mk>='2025-09')out+=(germanyMktAllByMonth[mk]||0);
+      return out;
+    }
+    return v.mktAll||0;
+  };
+  const reportMonthKey=[...allMonthKeys].reverse().find(mk=>scopeCountries.some(c=>countryMonthMkt(c,mk)>0))||allMonthKeys[allMonthKeys.length-1]||null;
   const reportLyKey=shiftMonthKey(reportMonthKey,-12);
   const monthLabel=(mk)=>{
     if(!mk)return '—';
@@ -1167,11 +1166,13 @@ function renderOverview(){
     return new Date(y,m-1,1).toLocaleString('en-GB',{month:'short',year:'numeric'});
   };
   const cmRows=scopeCountries.map(c=>{
-    const cur=monthlyByCountry[`${c}||${reportMonthKey}`]||{rev:0,mkt:0};
-    const ly=monthlyByCountry[`${c}||${reportLyKey}`]||{rev:0,mkt:0};
-    const shareCur=cur.rev>0?(cur.mkt/cur.rev*100):0;
-    const shareLy=ly.rev>0?(ly.mkt/ly.rev*100):0;
-    return {country:c,mktCur:cur.mkt,mktLy:ly.mkt,shareCur,shareLy};
+    const cur=monthlyByCountry[`${c}||${reportMonthKey}`]||{rev:0,mktEvent:0,mktAll:0};
+    const ly=monthlyByCountry[`${c}||${reportLyKey}`]||{rev:0,mktEvent:0,mktAll:0};
+    const curMkt=countryMonthMkt(c,reportMonthKey);
+    const lyMkt=countryMonthMkt(c,reportLyKey);
+    const shareCur=cur.rev>0?(curMkt/cur.rev*100):0;
+    const shareLy=ly.rev>0?(lyMkt/ly.rev*100):0;
+    return {country:c,mktCur:curMkt,mktLy:lyMkt,shareCur,shareLy};
   }).sort((a,b)=>b.mktCur-a.mktCur);
   const countryMomentumHtml=`<div class="chart-grid" style="margin-bottom:14px">
     <div class="chart-box"><h3>Marketing Revenue by Country (${monthLabel(reportMonthKey)} vs ${monthLabel(reportLyKey)})</h3><canvas id="chCountryMktYoY"></canvas></div>
@@ -2510,44 +2511,44 @@ function renderCountriesRaw(){
 
   /* Aggregate RAW_EVENTS by country+month */
   const agg={};
+  const germanyMktAllByMonth={};
   Object.values(COUNTRY_MAP).forEach(({key,cur})=>{
-    agg[key]={cur,tick:new Array(ALL_MONTHS.length).fill(null),mkt:new Array(ALL_MONTHS.length).fill(null)};
+    agg[key]={cur,tick:new Array(ALL_MONTHS.length).fill(null),mktEvent:new Array(ALL_MONTHS.length).fill(null),mktAll:new Array(ALL_MONTHS.length).fill(null),mkt:new Array(ALL_MONTHS.length).fill(null)};
   });
 
   eventsToUse.forEach(e=>{
-    const cm=COUNTRY_MAP[e.country];
-    if(!cm)return;
-    if((e.type||'').toLowerCase()!=='event')return; /* only events, not attractions */
     const mKey=monthKeyFromDateRaw(e.date);
     if(!mKey)return;
     if(dataMaxKey&&mKey>dataMaxKey)return;
     if(!isValidRevenuePoint(e.rev,e.mkt))return;
+    if((e.country||'')==='Germany'){
+      germanyMktAllByMonth[mKey]=(germanyMktAllByMonth[mKey]||0)+(parseFloat(e.mkt)||0);
+    }
+    const cm=COUNTRY_MAP[e.country];
+    if(!cm)return;
     const idx=MONTH_KEYS.indexOf(mKey);
     if(idx===-1)return;
     const bucket=agg[cm.key];
     const rev=parseFloat(e.rev)||0;
     const mkt=parseFloat(e.mkt)||0;
+    if(mkt>0){bucket.mktAll[idx]=(bucket.mktAll[idx]||0)+mkt;}
+    if((e.type||'').toLowerCase()!=='event')return; /* ticketing only events */
     if(rev>0){bucket.tick[idx]=(bucket.tick[idx]||0)+rev;}
-    if(mkt>0){bucket.mkt[idx]=(bucket.mkt[idx]||0)+mkt;}
+    if(mkt>0){bucket.mktEvent[idx]=(bucket.mktEvent[idx]||0)+mkt;}
   });
 
-  // Override marketing with file-consistent countries series where available
-  const KEY_TO_COUNTRY={
-    'UAE':'United Arab Emirates',
-    'Bahrain':'Bahrain',
-    'Saudi Arabia':'Saudi Arabia',
-    'Oman':'Oman',
-    'Qatar':'Qatar'
-  };
+  // Reproduce Countries RAW marketing formula behavior:
+  // - UAE Feb-2025 uses event-only marketing
+  // - Other UAE months use all-types marketing
+  // - From Sep-2025 onward UAE includes Germany marketing carry-over (+AK22.. style)
   Object.keys(agg).forEach(k=>{
-    const full=KEY_TO_COUNTRY[k];
-    if(!full)return;
     MONTH_KEYS.forEach((mk,idx)=>{
-      const tov=getCountryTicketingOverride(full,mk);
-      if(tov!=null)agg[k].tick[idx]=tov;
-      const ov=getCountryMarketingOverride(full,mk);
-      if(ov==null)return;
-      agg[k].mkt[idx]=ov;
+      let val=(agg[k].mktAll[idx]||0);
+      if(k==='UAE'){
+        if(mk==='2025-02')val=(agg[k].mktEvent[idx]||0);
+        if(mk>='2025-09')val+=(germanyMktAllByMonth[mk]||0);
+      }
+      agg[k].mkt[idx]=val||null;
     });
   });
 
