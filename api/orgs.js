@@ -23,31 +23,25 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Fetch all ~1711 organisers in parallel pages of 1000
-    const pageSize = 1000;
-    const totalEstimate = 2000;
-    const pages = Math.ceil(totalEstimate / pageSize);
-
-    const promises = [];
-    for (let i = 0; i < pages; i++) {
-      promises.push(
-        supabase
-          .from('dashboard_organisers')
-          .select('organizer,country,tier,stage,type,event_ex,t23,t24,t25,t26,m23,m24,m25,m26,s23,s24,s25,s26,tt,tm,ts,tyoy24,myoy24,tyoy25,myoy25,tags,sg,sgp,rp,gt,rs,ps,sr,nba,lc')
-          .range(i * pageSize, (i + 1) * pageSize - 1)
-          .order('id', { ascending: true })
-      );
-    }
-
-    const results = await Promise.all(promises);
-
     let allRows = [];
-    for (const { data, error } of results) {
+    let from = 0;
+    const pageSize = 1000;
+
+    while (true) {
+      const { data, error } = await supabase
+        .from('dashboard_organisers')
+        .select('organizer,country,tier,stage,type,event_ex,t23,t24,t25,t26,m23,m24,m25,m26,s23,s24,s25,s26,tt,tm,ts,tyoy24,myoy24,tyoy25,myoy25,tags,sg,sgp,rp,gt,rs,ps,sr,nba,lc')
+        .order('id', { ascending: true })
+        .range(from, from + pageSize - 1);
+
       if (error) {
         console.error('Supabase error:', error);
         return res.status(500).json({ error: error.message });
       }
-      if (data) allRows = allRows.concat(data);
+      if (!data || data.length === 0) break;
+      allRows = allRows.concat(data);
+      if (data.length < pageSize) break;
+      from += pageSize;
     }
 
     return res.status(200).json(allRows);

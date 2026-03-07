@@ -16,24 +16,25 @@ export default async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
 
   try {
-    // Supabase REST API caps responses at 1000 rows regardless of limit parameter.
-    // DB has ~11500 rows -> fetch 12 parallel pages of 1000 rows each = 12000 slots.
+    let allRows = [];
+    let from = 0;
     const PAGE = 1000;
-    const TOTAL_PAGES = 12;
 
-    const promises = Array.from({ length: TOTAL_PAGES }, (_, i) =>
-      supabase
+    while (true) {
+      const { data, error } = await supabase
         .from('dashboard_events')
         .select('org,name,country,type,event_id,date,year,rev,mkt,share')
-        .range(i * PAGE, (i + 1) * PAGE - 1)
-    );
+        .order('id', { ascending: true })
+        .range(from, from + PAGE - 1);
 
-    const results = await Promise.all(promises);
-
-    let allRows = [];
-    for (const { data, error } of results) {
-      if (error) { console.error('Page error:', error.message); continue; }
-      if (data && data.length > 0) allRows = allRows.concat(data);
+      if (error) {
+        console.error('Page error:', error.message);
+        return res.status(500).json({ error: error.message });
+      }
+      if (!data || data.length === 0) break;
+      allRows = allRows.concat(data);
+      if (data.length < PAGE) break;
+      from += PAGE;
     }
 
     return res.status(200).json(allRows.map(row => ({

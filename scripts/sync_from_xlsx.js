@@ -124,13 +124,13 @@ function normalizeCountryMonth(rows, targets) {
         }
       }
 
-      const sumMkt = bucket.reduce((s, r) => s + num(r.mkt), 0);
+      const sumMkt = eventRows.reduce((s, r) => s + num(r.mkt), 0);
       if (Number.isFinite(exp.mkt)) {
         if (sumMkt > 0) {
           const f = exp.mkt / sumMkt;
-          bucket.forEach((r) => { r.mkt = num(r.mkt) * f; });
+          eventRows.forEach((r) => { r.mkt = num(r.mkt) * f; });
         } else if (exp.mkt > 0) {
-          bucket[0].mkt = exp.mkt;
+          if (eventRows.length) eventRows[0].mkt = exp.mkt;
         }
       }
 
@@ -243,7 +243,10 @@ function parseCountriesRawTargets(rows) {
   const wantedCountries = new Set(['United Arab Emirates', 'Bahrain', 'Saudi Arabia', 'Oman', 'Qatar']);
   const targets = {};
 
-  for (let r = 2; r < rows.length; r++) {
+  // Canonical data block is in the upper section of Countries RAW.
+  // Ignore lower helper/diagnostic blocks that can contain duplicate labels.
+  const MAX_CANONICAL_ROW = 24; // 1-based row 24 is already below primary country metrics
+  for (let r = 2; r < rows.length && r < MAX_CANONICAL_ROW; r++) {
     const row = rows[r] || [];
     const country = text(row[0]);
     const metric = text(row[1]).toLowerCase();
