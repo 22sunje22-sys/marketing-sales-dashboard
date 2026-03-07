@@ -104,15 +104,15 @@ function buildEventRows(rows) {
 function buildEventAggByOrganizer(eventRows) {
   const out = {};
   for (const e of eventRows) {
-    if (text(e.type).toLowerCase() !== 'event') continue;
     const org = lcKey(e.org);
     if (!org) continue;
     const y = Number(text(e.year) || text(e.date).slice(0, 4));
     if (!out[org]) out[org] = { t23: 0, m23: 0, t24: 0, m24: 0, t25: 0, m25: 0, t26: 0, m26: 0 };
-    if (y === 2023) { out[org].t23 += num(e.rev); out[org].m23 += num(e.mkt); }
-    if (y === 2024) { out[org].t24 += num(e.rev); out[org].m24 += num(e.mkt); }
-    if (y === 2025) { out[org].t25 += num(e.rev); out[org].m25 += num(e.mkt); }
-    if (y === 2026) { out[org].t26 += num(e.rev); out[org].m26 += num(e.mkt); }
+    const isEvent = text(e.type).toLowerCase() === 'event';
+    if (y === 2023) { if (isEvent) out[org].t23 += num(e.rev); out[org].m23 += num(e.mkt); }
+    if (y === 2024) { if (isEvent) out[org].t24 += num(e.rev); out[org].m24 += num(e.mkt); }
+    if (y === 2025) { if (isEvent) out[org].t25 += num(e.rev); out[org].m25 += num(e.mkt); }
+    if (y === 2026) { if (isEvent) out[org].t26 += num(e.rev); out[org].m26 += num(e.mkt); }
   }
   return out;
 }
