@@ -65,7 +65,9 @@ function buildEventRows(rows) {
   const out = [];
   for (let r = 5; r < rows.length; r++) {
     const row = rows[r] || [];
-    const org = text(row[3]);
+    const orgRaw = text(row[3]);
+    const orgSumUp = text(row[13]);
+    const org = orgSumUp || orgRaw;
     const name = text(row[4]);
     const country = text(row[5]);
     const eventIdRaw = row[6];
@@ -143,7 +145,23 @@ function normalizeCountryMonth(rows, targets) {
   }
 }
 
-function buildOrganiserRows(rows, oldByOrg) {
+function buildEventAggByOrganizer(eventRows) {
+  const out = {};
+  for (const e of eventRows) {
+    if (text(e.type).toLowerCase() !== 'event') continue;
+    const org = lcKey(e.org);
+    if (!org) continue;
+    const y = Number(text(e.year) || text(e.date).slice(0, 4));
+    if (!out[org]) out[org] = { t23: 0, m23: 0, t24: 0, m24: 0, t25: 0, m25: 0, t26: 0, m26: 0 };
+    if (y === 2023) { out[org].t23 += num(e.rev); out[org].m23 += num(e.mkt); }
+    if (y === 2024) { out[org].t24 += num(e.rev); out[org].m24 += num(e.mkt); }
+    if (y === 2025) { out[org].t25 += num(e.rev); out[org].m25 += num(e.mkt); }
+    if (y === 2026) { out[org].t26 += num(e.rev); out[org].m26 += num(e.mkt); }
+  }
+  return out;
+}
+
+function buildOrganiserRows(rows, oldByOrg, eventAggByOrg) {
   const out = [];
   for (let r = 4; r < rows.length; r++) {
     const row = rows[r] || [];
@@ -159,14 +177,15 @@ function buildOrganiserRows(rows, oldByOrg) {
     const country = text(row[7]) || null;
     const event_ex = text(row[6]) || null;
 
-    const t23 = num(row[9]);
-    const m23 = num(row[10]);
-    const t24 = num(row[11]);
-    const m24 = num(row[12]);
-    const t25 = num(row[13]);
-    const m25 = num(row[14]);
-    const t26 = num(row[15]);
-    const m26 = num(row[16]);
+    const evAgg = eventAggByOrg[lcKey(organizer)] || { t23: 0, m23: 0, t24: 0, m24: 0, t25: 0, m25: 0, t26: 0, m26: 0 };
+    const t23 = num(evAgg.t23);
+    const m23 = num(evAgg.m23);
+    const t24 = num(evAgg.t24);
+    const m24 = num(evAgg.m24);
+    const t25 = num(evAgg.t25);
+    const m25 = num(evAgg.m25);
+    const t26 = num(evAgg.t26);
+    const m26 = num(evAgg.m26);
 
     const s23 = t23 > 0 ? (m23 / t23) * 100 : 0;
     const s24 = t24 > 0 ? (m24 / t24) * 100 : 0;
@@ -293,12 +312,13 @@ async function main() {
   const eventRows = buildEventRows(evRowsRaw);
   const expectedCountry = parseCountriesRawTargets(crRowsRaw);
   normalizeCountryMonth(eventRows, expectedCountry);
+  const eventAggByOrg = buildEventAggByOrganizer(eventRows);
   console.log('Prepared dashboard_events rows:', eventRows.length);
 
   const oldOrgs = await fetchAll('dashboard_organisers', 'organizer,tags,sg,sgp,rp,gt,rs,ps,sr,nba,lc');
   const oldByOrg = new Map(oldOrgs.map((o) => [lcKey(o.organizer), o]));
 
-  const organiserRows = buildOrganiserRows(orgRowsRaw, oldByOrg);
+  const organiserRows = buildOrganiserRows(orgRowsRaw, oldByOrg, eventAggByOrg);
   console.log('Prepared dashboard_organisers rows:', organiserRows.length);
 
   console.log('Deleting old dashboard_events...');
