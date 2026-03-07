@@ -258,6 +258,32 @@ tr:hover td { background:var(--surface2); }
 .vc-noact.active { background:var(--pl-monday); color:var(--pl-storm); }
 .vc-acted { background:var(--green-bg); color:var(--green); }
 .vc-acted.active { background:var(--green); color:var(--pl-storm); }
+.vc-action { background:rgba(239,68,68,0.15); color:var(--red); }
+.vc-action.active { background:var(--red); color:#fff; }
+.sales-focus { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:12px 14px; margin-bottom:14px; display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+.sf-item { display:flex; align-items:center; gap:6px; font-size:12px; color:var(--text2); background:var(--surface2); border:1px solid var(--border); border-radius:10px; padding:6px 10px; }
+.sf-item b { color:var(--text); }
+.sf-item.hot b { color:var(--red); }
+.sf-item.pot b { color:var(--green); }
+.quick-queue { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:12px 14px; margin-bottom:12px; }
+.qq-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; font-size:13px; color:var(--text2); }
+.qq-list { display:flex; flex-direction:column; gap:6px; max-height:320px; overflow:auto; }
+.qq-row { display:flex; align-items:center; gap:8px; background:var(--surface2); border:1px solid var(--border); border-radius:8px; padding:7px 8px; }
+.qq-org { min-width:220px; max-width:320px; font-size:12px; font-weight:600; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.qq-meta { font-size:11px; color:var(--text3); flex:1; }
+.qq-btn { padding:3px 8px; border-radius:6px; border:1px solid var(--border); background:var(--surface3); color:var(--text2); font-size:11px; cursor:pointer; }
+.qq-btn:hover { border-color:var(--pl-monday); color:var(--text); }
+.country-radar { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:14px; margin-top:16px; }
+.country-radar h3 { font-size:15px; margin-bottom:10px; }
+.country-radar table { width:100%; border-collapse:collapse; font-size:12px; }
+.country-radar th { text-align:left; color:var(--text3); border-bottom:1px solid var(--border); padding:8px 6px; font-size:11px; text-transform:uppercase; letter-spacing:0.4px; }
+.country-radar td { padding:8px 6px; border-bottom:1px solid var(--border); }
+.country-radar tr:hover td { background:var(--surface2); }
+.radar-row { cursor:pointer; }
+.radar-tag { font-size:10px; padding:2px 7px; border-radius:10px; border:1px solid var(--border); }
+.radar-high { color:var(--red); border-color:var(--red); background:var(--red-bg); }
+.radar-mid { color:var(--amber); border-color:var(--amber); background:var(--amber-bg); }
+.radar-low { color:var(--green); border-color:var(--green); background:var(--green-bg); }
 
 /* ACTIVITY LOG TAB */
 .log-table { width:100%; font-size:12px; }
@@ -697,8 +723,42 @@ function switchTab(t){
 }
 function evtSlug(name){return(name||'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');}
 function evtUrl(id,name){return'https://platinumlist.net/event-tickets/'+id+'/'+evtSlug(name);}
+function normStr(s){
+  return (s||'')
+    .toString()
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g,'')
+    .replace(/[^\p{L}\p{N}\s]/gu,' ')
+    .replace(/\s+/g,' ')
+    .trim();
+}
 function drillDown(view,searchTerm){
-  oppView=view||'all';oppPage=0;oppFilters={country:'',tier:'',stage:'',type:'',search:searchTerm||'',tag:''};
+  oppView=view||'all';
+  oppPage=0;
+  oppFilters={country:'',tier:'',stage:'',type:'',search:'',tag:''};
+  if(searchTerm){
+    const term=normStr(searchTerm);
+    const exact=ORGS.find(o=>normStr(o.organizer)===term);
+    const matches=exact?[exact]:ORGS.filter(o=>normStr(o.organizer).includes(term));
+    if(matches.length===1&&matches[0]?.organizer){
+      oppFilters.search=matches[0].organizer;
+    }else if(matches.length>1){
+      oppFilters.search=searchTerm||'';
+    }else{
+      oppView='all';
+      oppFilters.search='';
+      switchTab('opportunities');
+      showToast('ℹ️','No Match In Current Scope',`"${searchTerm}" not found for your country scope`);
+      return;
+    }
+  }
+  switchTab('opportunities');
+}
+function drillDownCountry(country,view){
+  oppView=view||'all';
+  oppPage=0;
+  oppFilters={country:country||'',tier:'',stage:'',type:'',search:'',tag:''};
   switchTab('opportunities');
 }
 function getEvtStatus(orgName,evtId){
@@ -788,6 +848,32 @@ function renderOverview(){
   const actionQueue=[...ORGS].filter(o=>o.sr==='hot'||o.rs>60||o.gt==='decelerating').sort((a,b)=>{const aPri=(a.sr==='hot'?30:0)+(a.rs>60?a.rs*0.3:0)+(a.gt==='decelerating'?20:0)+a.ps*0.2;const bPri=(b.sr==='hot'?30:0)+(b.rs>60?b.rs*0.3:0)+(b.gt==='decelerating'?20:0)+b.ps*0.2;return bPri-aPri;}).slice(0,8);
   const aqIcons={Upsell:'💰',Retain:'🛡️',Acquire:'🎯',Pitch:'📞',Accelerate:'🚀',Expand:'📈',Grow:'🌱',Defend:'⚔️',Engage:'🤝',Monitor:'👁️'};
 
+  const countryRadar=Object.keys(countries).map(country=>{
+    const list=ORGS.filter(o=>o.country===country);
+    const growingCnt=list.filter(o=>(o.tyoy25>20)||(o.myoy25>20)||o.gt==='accelerating').length;
+    const decliningCnt=list.filter(o=>(o.tyoy25<-20)||(o.myoy25<-20)||o.gt==='decelerating').length;
+    const bigCnt=list.filter(o=>(o.tt||0)>=500000).length;
+    const smallCnt=list.filter(o=>(o.tt||0)<50000).length;
+    const challengeCnt=list.filter(o=>(o.rs||0)>=60||o.lc==='at-risk'||(o.sg||0)>=3).length;
+    const noChallengeCnt=Math.max(0,list.length-challengeCnt);
+    const potential=list.reduce((s,o)=>s+(o.rp||0),0);
+    const challengeRate=list.length?(challengeCnt/list.length):0;
+    let challengeLevel='Low',challengeCls='radar-low';
+    if(challengeRate>=0.4){challengeLevel='High';challengeCls='radar-high';}
+    else if(challengeRate>=0.2){challengeLevel='Medium';challengeCls='radar-mid';}
+    return {country,total:list.length,growingCnt,decliningCnt,bigCnt,smallCnt,challengeCnt,noChallengeCnt,potential,challengeRate,challengeLevel,challengeCls};
+  }).sort((a,b)=>{
+    if(curUser&&curUser.id==='mohammed'){
+      if(b.challengeCnt!==a.challengeCnt)return b.challengeCnt-a.challengeCnt;
+      return b.potential-a.potential;
+    }
+    return b.potential-a.potential;
+  });
+
+  const radarRows=countryRadar.slice(0,15).map(r=>`<tr class="radar-row" onclick="drillDownCountry('${r.country.replace(/'/g,"\\'")}','all')" title="Open ${r.country} in Opportunities"><td><b>${r.country}</b></td><td>${r.growingCnt}</td><td>${r.decliningCnt}</td><td>${r.bigCnt}</td><td>${r.smallCnt}</td><td style="color:var(--red)">${r.challengeCnt}</td><td style="color:var(--green)">${r.noChallengeCnt}</td><td><span class="radar-tag ${r.challengeCls}">${r.challengeLevel}</span></td><td style="color:var(--green)">${fmtCur(r.potential)}</td></tr>`).join('');
+  const radarTitle=curUser&&curUser.id==='mohammed'?'Country Sales Radar (priority by challenge)':'Country Sales Radar';
+  const countryRadarHtml=`<div class="country-radar"><h3>🌍 ${radarTitle}</h3><table><thead><tr><th>Country</th><th>Growing</th><th>Declining</th><th>Big</th><th>Small</th><th>Challenge</th><th>No Challenge</th><th>Level</th><th>Potential</th></tr></thead><tbody>${radarRows||'<tr><td colspan=\"9\" style=\"color:var(--text3)\">No country data</td></tr>'}</tbody></table></div>`;
+
   p.innerHTML=`
   ${territoryHtml}
   <div class="kpi-row">
@@ -799,7 +885,7 @@ function renderOverview(){
     <div class="kpi kpi-click" onclick="drillDown('growth')" title="View Growing orgs"><div class="kpi-label">🚀 Growing</div><div class="kpi-val" style="color:var(--green)">${growing}</div><div class="kpi-sub">Accelerating orgs</div></div>
   </div>
   <div class="action-queue">
-    <h3>⚡ Priority Actions Today</h3>
+    <h3>⚡ Priority Actions This Month</h3>
     <div class="aq-list">
       ${actionQueue.map(o=>{
         const action=o.nba.split('—')[0].trim();
@@ -822,7 +908,8 @@ function renderOverview(){
     <div class="seg-card"><h3>Top 5 Mkt Revenue Potential</h3><div id="segTop5RP"></div></div>
     <div class="seg-card"><h3>Biggest Declines (YoY)</h3><div id="segDeclines"></div></div>
     <div class="seg-card"><h3>Fastest Growing</h3><div id="segGrowing"></div></div>
-  </div>`;
+  </div>
+  ${countryRadarHtml}`;
 
   // Revenue Trend
   const years=[2023,2024,2025,2026];
@@ -906,10 +993,14 @@ function renderPipeline(){
   stages.forEach(s=>{
     const list=ORGS.filter(o=>o.lc===s).sort((a,b)=>b.rp-a.rp).slice(0,8);
     html+=`<div class="seg-card"><h3>${stageLabels[s]} — Top 8</h3>`;
-    list.forEach(o=>{
-      const srBadge=o.sr==='hot'?'badge-hot':o.sr==='warm'?'badge-warm':'badge-medium';
-      html+=`<div class="seg-row seg-click" onclick="drillDown('all','${o.organizer.replace(/'/g,"\\'")}')" title="View in Opportunities"><span>${o.organizer.substring(0,30)} <span class="badge ${srBadge}">${o.sr}</span></span><span>${fmtCur(o.rp)}</span></div>`;
-    });
+    if(list.length===0){
+      html+='<div class="seg-row"><span style="color:var(--text3)">No organisers in this stage</span><span style="color:var(--text3)">—</span></div>';
+    }else{
+      list.forEach(o=>{
+        const srBadge=o.sr==='hot'?'badge-hot':o.sr==='warm'?'badge-warm':'badge-medium';
+        html+=`<div class="seg-row seg-click" onclick="drillDown('all','${o.organizer.replace(/'/g,"\\'")}')" title="View in Opportunities"><span>${o.organizer.substring(0,30)} <span class="badge ${srBadge}">${o.sr}</span></span><span>${fmtCur(o.rp)}</span></div>`;
+      });
+    }
     html+='</div>';
   });
   html+='</div>';
@@ -943,7 +1034,7 @@ function renderOpps(){
 
   // Tag counts for chips
   const tagCounts={};ORGS.forEach(o=>o.tags.forEach(t=>{tagCounts[t]=(tagCounts[t]||0)+1;}));
-  const TAG_META={'low-share-opportunity':{l:'Low Share Big Rev',i:'📈'},'high-share':{l:'High Share',i:'⭐'},'fast-growing':{l:'Fast Growing',i:'🚀'},'declining':{l:'Declining',i:'📉'},'zero-mkt':{l:'Zero Marketing',i:'🔴'},'untapped-big':{l:'Untapped Big',i:'💎'},'premier-low-share':{l:'Premier Low Share',i:'👑'},'call-today':{l:'Call Today',i:'📞'},'scaling':{l:'Scaling',i:'📈'},'defend-now':{l:'Defend Now',i:'🛡️'},'whale-prospect':{l:'Whale Prospect',i:'🐋'}};
+  const TAG_META={'low-share-opportunity':{l:'Low Share Big Rev',i:'📈'},'high-share':{l:'High Share',i:'⭐'},'fast-growing':{l:'Fast Growing',i:'🚀'},'declining':{l:'Declining',i:'📉'},'zero-mkt':{l:'Zero Marketing',i:'🔴'},'untapped-big':{l:'Untapped Big',i:'💎'},'premier-low-share':{l:'Premier Low Share',i:'👑'},'call-today':{l:'Act This Month',i:'⚡'},'scaling':{l:'Scaling',i:'📈'},'defend-now':{l:'Defend Now',i:'🛡️'},'whale-prospect':{l:'Whale Prospect',i:'🐋'}};
 
   let html=`
   <div class="view-chips">
@@ -952,18 +1043,37 @@ function renderOpps(){
     <div class="view-chip vc-warm ${oppView==='warm'?'active':''}" onclick="oppView='warm';oppPage=0;logAction('view_filter','warm','opportunities');renderOppCards()">🟡 Warm (${ORGS.filter(o=>o.sr==='warm').length})</div>
     <div class="view-chip vc-growth ${oppView==='growth'?'active':''}" onclick="oppView='growth';oppPage=0;logAction('view_filter','growth','opportunities');renderOppCards()">🚀 Growing (${ORGS.filter(o=>o.gt==='accelerating').length})</div>
     <div class="view-chip vc-risk ${oppView==='risk'?'active':''}" onclick="oppView='risk';oppPage=0;logAction('view_filter','risk','opportunities');renderOppCards()">⚠️ At Risk (${ORGS.filter(o=>o.rs>60).length})</div>
+    <div class="view-chip vc-action ${oppView==='action_month'?'active':''}" onclick="oppView='action_month';oppPage=0;logAction('view_filter','action_month','opportunities');renderOppCards()">⚡ Action This Month (${ORGS.filter(o=>(o.tags.includes('Call Today')||o.ps>=80||!ORG_ACTIONS_SET.has(o.organizer))).length})</div>
+    <div class="view-chip vc-all ${oppView==='big'?'active':''}" onclick="oppView='big';oppPage=0;logAction('view_filter','big','opportunities');renderOppCards()">🏢 Big (${ORGS.filter(o=>(o.tt||0)>=500000).length})</div>
+    <div class="view-chip vc-all ${oppView==='small'?'active':''}" onclick="oppView='small';oppPage=0;logAction('view_filter','small','opportunities');renderOppCards()">🧩 Small (${ORGS.filter(o=>(o.tt||0)<50000).length})</div>
+    <div class="view-chip vc-growth ${oppView==='big_opp'?'active':''}" onclick="oppView='big_opp';oppPage=0;logAction('view_filter','big_opp','opportunities');renderOppCards()">💰 Big Opportunity (${ORGS.filter(o=>(o.rp||0)>=100000).length})</div>
+    <div class="view-chip vc-noact ${oppView==='stale'?'active':''}" onclick="oppView='stale';oppPage=0;logAction('view_filter','stale','opportunities');renderOppCards()">🕒 Stale >30d (${ORGS.filter(o=>daysSinceLastAction(o.organizer)>30).length})</div>
     <div class="view-chip vc-noact ${oppView==='no_actions'?'active':''}" onclick="oppView='no_actions';oppPage=0;renderOppCards()">🆕 Without Actions (${ORGS.filter(o=>!ORG_ACTIONS_SET.has(o.organizer)).length})</div>
     <div class="view-chip vc-acted ${oppView==='acted'?'active':''}" onclick="oppView='acted';oppPage=0;renderOppCards()">✅ Worked On (${ORGS.filter(o=>ORG_ACTIONS_SET.has(o.organizer)).length})</div>
     ${oppView.startsWith('traj_')?`<div class="view-chip active" style="background:var(--accent);color:var(--pl-storm);" onclick="oppView='all';oppPage=0;renderOppCards()">📊 ${oppView.replace('traj_','').charAt(0).toUpperCase()+oppView.replace('traj_','').slice(1)} (${ORGS.filter(o=>o.gt===oppView.replace('traj_','')).length}) ✕</div>`:''}
     ${oppView.startsWith('sr_')?`<div class="view-chip active" style="background:var(--accent);color:var(--pl-storm);" onclick="oppView='all';oppPage=0;renderOppCards()">🎯 ${oppView.replace('sr_','').charAt(0).toUpperCase()+oppView.replace('sr_','').slice(1)} Readiness (${ORGS.filter(o=>o.sr===oppView.replace('sr_','')).length}) ✕</div>`:''}
     ${oppView.startsWith('lc_')?`<div class="view-chip active" style="background:var(--accent);color:var(--pl-storm);" onclick="oppView='all';oppPage=0;renderOppCards()">🔄 ${oppView.replace('lc_','').charAt(0).toUpperCase()+oppView.replace('lc_','').slice(1)} Lifecycle (${ORGS.filter(o=>o.lc===oppView.replace('lc_','')).length}) ✕</div>`:''}
   </div>
+  <div class="sales-focus">
+    <div class="sf-item hot">🔥 Hot now: <b>${ORGS.filter(o=>o.sr==='hot').length}</b></div>
+    <div class="sf-item">⚡ Action This Month: <b>${ORGS.filter(o=>(o.tags.includes('Call Today')||o.ps>=80||!ORG_ACTIONS_SET.has(o.organizer))).length}</b></div>
+    <div class="sf-item">🏢 Big: <b>${ORGS.filter(o=>(o.tt||0)>=500000).length}</b></div>
+    <div class="sf-item">🧩 Small: <b>${ORGS.filter(o=>(o.tt||0)<50000).length}</b></div>
+    <div class="sf-item pot">💰 Big Opportunity: <b>${ORGS.filter(o=>(o.rp||0)>=100000).length}</b></div>
+    <div class="sf-item">🕒 Stale >30d: <b>${ORGS.filter(o=>daysSinceLastAction(o.organizer)>30).length}</b></div>
+    <div class="sf-item">🆕 No actions: <b>${ORGS.filter(o=>!ORG_ACTIONS_SET.has(o.organizer)).length}</b></div>
+    <div class="sf-item pot">🟢 Open potential: <b>${fmtCur(ORGS.reduce((s,o)=>s+(o.rp||0),0))}</b></div>
+  </div>
+  <div class="quick-queue">
+    <div class="qq-head"><span>🚀 Sales Queue (This Month)</span><span id="qqCount"></span></div>
+    <div class="qq-list" id="oppQuickQueue"></div>
+  </div>
   <div class="filter-bar">
     <select onchange="oppFilters.country=this.value;oppPage=0;sess.filters++;logAction('filter_country',this.value,'opportunities');renderOppCards()"><option value="">All Countries</option>${countries.map(c=>`<option value="${c}">${c}</option>`).join('')}</select>
     <select onchange="oppFilters.tier=this.value;oppPage=0;sess.filters++;logAction('filter_tier',this.value,'opportunities');renderOppCards()"><option value="">All Tiers</option>${tiers.map(t=>`<option value="${t}">${t}</option>`).join('')}</select>
     <select onchange="oppFilters.stage=this.value;oppPage=0;sess.filters++;logAction('filter_stage',this.value,'opportunities');renderOppCards()"><option value="">All Stages</option>${stages.map(s=>`<option value="${s}">${s}</option>`).join('')}</select>
     <select onchange="oppFilters.type=this.value;oppPage=0;sess.filters++;logAction('filter_type',this.value,'opportunities');renderOppCards()"><option value="">All Types</option>${types.map(t=>`<option value="${t}">${t}</option>`).join('')}</select>
-    <input id="oppSearchInput" placeholder="Search organisers..." value="${oppFilters.search||''}" oninput="oppFilters.search=this.value.toLowerCase();oppPage=0;sess.searches++;renderOppCards()" onchange="logAction('search',this.value,'opportunities')">
+    <input id="oppSearchInput" placeholder="Search organisers..." value="${oppFilters.search||''}" oninput="oppFilters.search=this.value;oppPage=0;sess.searches++;renderOppCards()" onchange="logAction('search',this.value,'opportunities')">
     ${oppFilters.search?`<button class="btn-clear-filter" onclick="oppFilters.search='';oppView='all';oppPage=0;renderOpps()" title="Clear search filter">✕ Clear</button>`:''}
     <button class="btn-export" onclick="sess.exports++;logAction('export','csv_filtered','opportunities');exportCSV()">📥 Export CSV</button>
   </div>
@@ -981,6 +1091,11 @@ function getFilteredOrgs(){
   else if(oppView==='warm')list=list.filter(o=>o.sr==='warm');
   else if(oppView==='growth')list=list.filter(o=>o.gt==='accelerating');
   else if(oppView==='risk')list=list.filter(o=>o.rs>60);
+  else if(oppView==='action_month')list=list.filter(o=>o.tags.includes('Call Today')||o.ps>=80||!ORG_ACTIONS_SET.has(o.organizer));
+  else if(oppView==='big')list=list.filter(o=>(o.tt||0)>=500000);
+  else if(oppView==='small')list=list.filter(o=>(o.tt||0)<50000);
+  else if(oppView==='big_opp')list=list.filter(o=>(o.rp||0)>=100000);
+  else if(oppView==='stale')list=list.filter(o=>daysSinceLastAction(o.organizer)>30);
   else if(oppView==='no_actions')list=list.filter(o=>!ORG_ACTIONS_SET.has(o.organizer));
   else if(oppView==='acted')list=list.filter(o=>ORG_ACTIONS_SET.has(o.organizer));
   else if(oppView.startsWith('traj_'))list=list.filter(o=>o.gt===oppView.replace('traj_',''));
@@ -991,7 +1106,10 @@ function getFilteredOrgs(){
   if(oppFilters.tier)list=list.filter(o=>o.tier===oppFilters.tier);
   if(oppFilters.stage)list=list.filter(o=>o.stage===oppFilters.stage);
   if(oppFilters.type)list=list.filter(o=>o.type===oppFilters.type);
-  if(oppFilters.search)list=list.filter(o=>o.organizer.toLowerCase().includes(oppFilters.search));
+  if(oppFilters.search){
+    const q=normStr(oppFilters.search);
+    list=list.filter(o=>normStr(o.organizer).includes(q));
+  }
   if(oppFilters.tag)list=list.filter(o=>o.tags.includes(oppFilters.tag));
 
   return list.sort((a,b)=>b.ps-a.ps);
@@ -1040,6 +1158,9 @@ function renderOppCards(){
         <span class="action-text" style="color:${actionColor(o.nba)}">${o.nba}</span>
         <div class="card-act-btns">
           ${ORG_ACTIONS_SET.has(o.organizer)?`<span class="act-done">✅</span>`:`<button class="act-btn" onclick="event.stopPropagation();actBtnClick(this,'${o.organizer.replace(/'/g,"\\'")}')">Worked on it</button>`}
+          <button class="act-btn act-btn-sm" title="Log email" onclick="event.stopPropagation();quickTouchAction('${o.organizer.replace(/'/g,"\\'")}','email',this)">📧</button>
+          <button class="act-btn act-btn-sm" title="Log meeting" onclick="event.stopPropagation();quickTouchAction('${o.organizer.replace(/'/g,"\\'")}','meeting',this)">🤝</button>
+          <button class="act-btn act-btn-sm" title="Flag for follow-up" onclick="event.stopPropagation();quickTouchAction('${o.organizer.replace(/'/g,"\\'")}','flag',this)">🚩</button>
           <button class="act-btn act-btn-sm" onclick="event.stopPropagation();showNoteModal('${o.organizer.replace(/'/g,"\\'")}')">📝</button>
           <button class="act-btn-task" onclick="event.stopPropagation();showTaskModal('${o.organizer.replace(/'/g,"\\'")}')">📋 Task</button>
         </div>
@@ -1048,10 +1169,29 @@ function renderOppCards(){
     </div>`;
   });
   html+='</div>';
+  if(list.length===0){
+    html=`<div class="seg-card" style="padding:18px">
+      <h3 style="margin-bottom:8px">No organisers found</h3>
+      <div style="font-size:13px;color:var(--text2);margin-bottom:10px">Try clearing search/filters or switch to <b>All</b> view.</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn-export" onclick="oppView='all';oppFilters={country:'',tier:'',stage:'',type:'',search:'',tag:''};oppPage=0;renderOpps()">Reset Filters</button>
+      </div>
+    </div>`;
+  }
   document.getElementById('oppCards').innerHTML=html;
 
   // Pagination
-  let pagHtml=`<div class="pag-info">Showing ${start+1}-${Math.min(start+perPage,list.length)} of ${list.length}</div><div class="pag-btns">`;
+  let pagHtml=`<div class="pag-info">Showing ${list.length?start+1:0}-${Math.min(start+perPage,list.length)} of ${list.length}</div><div class="pag-btns">`;
+  if(totalPages===0){
+    document.getElementById('oppPag').innerHTML='<div class="pag-info">No pages</div><div class="pag-btns"></div>';
+    updateViewChipCounts();
+    renderQuickQueue(list);
+    document.querySelectorAll('.chips .chip').forEach(el=>{
+      const tag=el.getAttribute('data-tag');
+      if(tag)el.classList.toggle('active',oppFilters.tag===tag);
+    });
+    return;
+  }
   pagHtml+=`<button class="pag-btn" ${oppPage===0?'disabled':''} onclick="oppPage--;renderOppCards()">← Prev</button>`;
   for(let i=0;i<Math.min(totalPages,7);i++){
     const pg=totalPages<=7?i:oppPage<3?i:oppPage>totalPages-4?totalPages-7+i:oppPage-3+i;
@@ -1062,11 +1202,39 @@ function renderOppCards(){
 
   // v2.8 — Update view chip counts based on CURRENT dropdown filters
   updateViewChipCounts();
+  renderQuickQueue(list);
   // v2.8 — Sync chip active states
   document.querySelectorAll('.chips .chip').forEach(el=>{
     const tag=el.getAttribute('data-tag');
     if(tag)el.classList.toggle('active',oppFilters.tag===tag);
   });
+}
+
+function getLastActionDate(org){
+  const acts=ORG_ACTIONS.filter(a=>a.org===org&&a.created_at);
+  if(acts.length===0)return null;
+  let maxTs=0;
+  acts.forEach(a=>{const ts=new Date(a.created_at).getTime();if(ts>maxTs)maxTs=ts;});
+  return maxTs?new Date(maxTs):null;
+}
+function daysSinceLastAction(org){
+  const d=getLastActionDate(org);
+  if(!d)return 999;
+  return Math.floor((Date.now()-d.getTime())/86400000);
+}
+function renderQuickQueue(filteredList){
+  const el=document.getElementById('oppQuickQueue');
+  const cnt=document.getElementById('qqCount');
+  if(!el||!cnt)return;
+  const queue=[...filteredList].filter(o=>o.ps>=70||daysSinceLastAction(o.organizer)>30||!ORG_ACTIONS_SET.has(o.organizer))
+    .sort((a,b)=>{
+      const aScore=(a.ps||0)+(a.rp||0)/100000+(daysSinceLastAction(a.organizer)>30?20:0)+(!ORG_ACTIONS_SET.has(a.organizer)?15:0);
+      const bScore=(b.ps||0)+(b.rp||0)/100000+(daysSinceLastAction(b.organizer)>30?20:0)+(!ORG_ACTIONS_SET.has(b.organizer)?15:0);
+      return bScore-aScore;
+    }).slice(0,20);
+  cnt.textContent=queue.length?`${queue.length} in focus`:'No items';
+  if(queue.length===0){el.innerHTML='<div style="color:var(--text3);font-size:12px;padding:8px">No priority items for current filters.</div>';return;}
+  el.innerHTML=queue.map(o=>`<div class="qq-row"><div class="qq-org" title="${o.organizer}">${o.organizer}</div><div class="qq-meta">${o.country} · PS ${o.ps} · ${fmtCur(o.rp)} · ${daysSinceLastAction(o.organizer)}d since touch</div><button class="qq-btn" onclick="event.stopPropagation();quickTouchAction('${o.organizer.replace(/'/g,"\\'")}','email',this)">📧</button><button class="qq-btn" onclick="event.stopPropagation();quickTouchAction('${o.organizer.replace(/'/g,"\\'")}','meeting',this)">🤝</button><button class="qq-btn" onclick="event.stopPropagation();actBtnClick(this,'${o.organizer.replace(/'/g,"\\'")}')">✅</button></div>`).join('');
 }
 
 function updateViewChipCounts(){
@@ -1076,7 +1244,10 @@ function updateViewChipCounts(){
   if(oppFilters.tier)base=base.filter(o=>o.tier===oppFilters.tier);
   if(oppFilters.stage)base=base.filter(o=>o.stage===oppFilters.stage);
   if(oppFilters.type)base=base.filter(o=>o.type===oppFilters.type);
-  if(oppFilters.search)base=base.filter(o=>o.organizer.toLowerCase().includes(oppFilters.search));
+  if(oppFilters.search){
+    const q=normStr(oppFilters.search);
+    base=base.filter(o=>normStr(o.organizer).includes(q));
+  }
   if(oppFilters.tag)base=base.filter(o=>o.tags.includes(oppFilters.tag));
   const counts={
     all:base.length,
@@ -1084,6 +1255,11 @@ function updateViewChipCounts(){
     warm:base.filter(o=>o.sr==='warm').length,
     growth:base.filter(o=>o.gt==='accelerating').length,
     risk:base.filter(o=>o.rs>60).length,
+    action_month:base.filter(o=>o.tags.includes('Call Today')||o.ps>=80||!ORG_ACTIONS_SET.has(o.organizer)).length,
+    big:base.filter(o=>(o.tt||0)>=500000).length,
+    small:base.filter(o=>(o.tt||0)<50000).length,
+    big_opp:base.filter(o=>(o.rp||0)>=100000).length,
+    stale:base.filter(o=>daysSinceLastAction(o.organizer)>30).length,
     no_actions:base.filter(o=>!ORG_ACTIONS_SET.has(o.organizer)).length,
     acted:base.filter(o=>ORG_ACTIONS_SET.has(o.organizer)).length
   };
@@ -1093,6 +1269,11 @@ function updateViewChipCounts(){
     'warm':`🟡 Warm (${counts.warm})`,
     'growth':`🚀 Growing (${counts.growth})`,
     'risk':`⚠️ At Risk (${counts.risk})`,
+    'action_month':`⚡ Action This Month (${counts.action_month})`,
+    'big':`🏢 Big (${counts.big})`,
+    'small':`🧩 Small (${counts.small})`,
+    'big_opp':`💰 Big Opportunity (${counts.big_opp})`,
+    'stale':`🕒 Stale >30d (${counts.stale})`,
     'no_actions':`🆕 Without Actions (${counts.no_actions})`,
     'acted':`✅ Worked On (${counts.acted})`
   };
@@ -1670,6 +1851,19 @@ async function actBtnClick(btn,org){
   btn.textContent='✅ Done';
   setTimeout(()=>{renderOppCards();},1200);
 }
+async function quickTouchAction(org,action,btn){
+  if(btn){
+    btn.classList.add('loading');
+    btn.textContent='';
+  }
+  await logOrgAction(org,action);
+  if(btn){
+    btn.classList.remove('loading');
+    btn.classList.add('done');
+    btn.textContent='✓';
+    setTimeout(()=>{renderOppCards();},700);
+  }
+}
 
 /* ===== v2.7 FILTER PERSISTENCE ===== */
 function saveFiltersToURL(){
@@ -1839,12 +2033,39 @@ function renderCountriesRaw(){
     'Qatar':{key:'Qatar', cur:'QAR', flag:'🇶🇦'}
   };
 
-  /* Generate all months from Jan 2023 to current month */
-  function genMonths(){
+  function monthKeyFromDateRaw(raw){
+    if(raw==null)return null;
+    const s=String(raw).trim();
+    if(!s)return null;
+    if(s.includes('-')){
+      const dp=s.split('-');
+      if(dp.length>=2){
+        const y=parseInt(dp[0],10);
+        const m=parseInt(dp[1],10);
+        if(Number.isFinite(y)&&Number.isFinite(m)&&m>=1&&m<=12)return `${y}-${String(m).padStart(2,'0')}`;
+      }
+    }
+    if(/^\d+$/.test(s)){
+      let y,m;
+      if(s.length===6){y=parseInt(s.slice(0,4),10);m=parseInt(s.slice(4),10);}
+      else if(s.length===5){y=parseInt(s.slice(0,4),10);m=parseInt(s.slice(4),10);}
+      if(Number.isFinite(y)&&Number.isFinite(m)&&m>=1&&m<=12)return `${y}-${String(m).padStart(2,'0')}`;
+    }
+    return null;
+  }
+
+  function genMonths(maxMonthKey){
     const months=[];
     const start=new Date(2023,0,1);
-    const now=new Date();
-    const end=new Date(now.getFullYear(),now.getMonth(),1);
+    let end;
+    if(maxMonthKey&&/^\d{4}-\d{2}$/.test(maxMonthKey)){
+      const y=parseInt(maxMonthKey.slice(0,4),10);
+      const m=parseInt(maxMonthKey.slice(5,7),10);
+      end=new Date(y,m-1,1);
+    }else{
+      const now=new Date();
+      end=new Date(now.getFullYear(),now.getMonth(),1);
+    }
     let d=new Date(start);
     while(d<=end){
       const label=d.toLocaleString('en-GB',{month:'short',year:'numeric'});
@@ -1854,7 +2075,18 @@ function renderCountriesRaw(){
     }
     return months;
   }
-  const ALL_MONTHS=genMonths();
+  /* Use RAW_EVENTS (already in memory from Supabase load) */
+  const eventsToUse=typeof RAW_EVENTS!=='undefined'?RAW_EVENTS:[];
+  const maxMonthKey=eventsToUse.reduce((mx,e)=>{
+    const cm=COUNTRY_MAP[e.country];
+    if(!cm)return mx;
+    if((e.type||'').toLowerCase()!=='event')return mx;
+    const mk=monthKeyFromDateRaw(e.date);
+    if(!mk)return mx;
+    return !mx||mk>mx?mk:mx;
+  },null);
+
+  const ALL_MONTHS=genMonths(maxMonthKey);
   const CR_MONTHS=ALL_MONTHS.map(m=>m.label);
   const MONTH_KEYS=ALL_MONTHS.map(m=>m.key);
 
@@ -1864,17 +2096,12 @@ function renderCountriesRaw(){
     agg[key]={cur,tick:new Array(ALL_MONTHS.length).fill(null),mkt:new Array(ALL_MONTHS.length).fill(null)};
   });
 
-  /* Use RAW_EVENTS (already in memory from Supabase load) */
-  const eventsToUse=typeof RAW_EVENTS!=='undefined'?RAW_EVENTS:[];
   eventsToUse.forEach(e=>{
     const cm=COUNTRY_MAP[e.country];
     if(!cm)return;
     if((e.type||'').toLowerCase()!=='event')return; /* only events, not attractions */
-    if(!e.date)return;
-    const dp=e.date.split('-');
-    const d=new Date(parseInt(dp[0]),parseInt(dp[1])-1,parseInt(dp[2]));
-    if(isNaN(d))return;
-    const mKey=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+    const mKey=monthKeyFromDateRaw(e.date);
+    if(!mKey)return;
     const idx=MONTH_KEYS.indexOf(mKey);
     if(idx===-1)return;
     const bucket=agg[cm.key];
@@ -1911,6 +2138,9 @@ function renderCountriesRaw(){
 
   const selId='crCountrySel';
   const rangeId='crRangeSel';
+  const customWrapId='crCustomRange';
+  const fromId='crFromMonth';
+  const toId='crToMonth';
 
   /* Country display names with flags */
   const COUNTRY_LABELS={
@@ -1935,7 +2165,29 @@ function renderCountriesRaw(){
           <option value="all">All (Jan 2023 – present)</option>
           <option value="12">Last 12 months</option>
           <option value="24">Last 24 months</option>
+          <option value="custom">Custom range</option>
         </select>
+        <div id="${customWrapId}" style="display:none;align-items:center;gap:8px;flex-wrap:wrap">
+          <label style="color:var(--text2);font-size:13px">From:</label>
+          <select id="${fromId}" style="background:var(--surface);color:var(--text1);border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-size:13px">
+            ${ALL_MONTHS.map(m=>`<option value="${m.key}">${m.label}</option>`).join('')}
+          </select>
+          <label style="color:var(--text2);font-size:13px">To:</label>
+          <select id="${toId}" style="background:var(--surface);color:var(--text1);border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-size:13px">
+            ${ALL_MONTHS.map(m=>`<option value="${m.key}" ${m.key===MONTH_KEYS[MONTH_KEYS.length-1]?'selected':''}>${m.label}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px">
+        <div class="seg-card">
+          <h4 style="margin-bottom:10px">Marketing Revenue by Country</h4>
+          <div style="height:220px"><canvas id="crMktByCountry"></canvas></div>
+        </div>
+        <div class="seg-card">
+          <h4 style="margin-bottom:10px">Marketing Share by Country</h4>
+          <div style="height:220px"><canvas id="crShareByCountry"></canvas></div>
+        </div>
       </div>
 
       <!-- KPI cards -->
@@ -1944,7 +2196,7 @@ function renderCountriesRaw(){
       <!-- Charts -->
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px">
         <div class="seg-card"><h4 style="margin-bottom:10px">Ticketing Revenue</h4><div style="height:240px"><canvas id="crTickChart"></canvas></div></div>
-        <div class="seg-card"><h4 style="margin-bottom:10px">Marketing Spend</h4><div style="height:240px"><canvas id="crMktChart"></canvas></div></div>
+        <div class="seg-card"><h4 style="margin-bottom:10px">Marketing Payments</h4><div style="height:240px"><canvas id="crMktChart"></canvas></div></div>
       </div>
       <div class="seg-card" style="margin-bottom:20px"><h4 style="margin-bottom:10px">PMSS % (Marketing / Ticketing)</h4><div style="height:240px"><canvas id="crPmssChart"></canvas></div></div>
 
@@ -1962,14 +2214,23 @@ function renderCountriesRaw(){
     const d=CR_DATA[country];
     const cur=d.cur;
 
-    let months=CR_MONTHS, tick=d.tick, mkt=d.mkt, pmss=d.pmss;
-    if(rangeVal!=='all'){
-      const n=parseInt(rangeVal);
-      months=months.slice(-n);
-      tick=tick.slice(-n);
-      mkt=mkt.slice(-n);
-      pmss=pmss.slice(-n);
+    let startIdx=0;
+    let endIdx=CR_MONTHS.length-1;
+    if(rangeVal==='12'||rangeVal==='24'){
+      const n=parseInt(rangeVal,10);
+      startIdx=Math.max(0,CR_MONTHS.length-n);
+    }else if(rangeVal==='custom'){
+      const fromKey=document.getElementById(fromId).value;
+      const toKey=document.getElementById(toId).value;
+      const fromIdx=Math.max(0,MONTH_KEYS.indexOf(fromKey));
+      const toIdx=Math.max(0,MONTH_KEYS.indexOf(toKey));
+      startIdx=Math.min(fromIdx,toIdx);
+      endIdx=Math.max(fromIdx,toIdx);
     }
+    let months=CR_MONTHS.slice(startIdx,endIdx+1);
+    let tick=d.tick.slice(startIdx,endIdx+1);
+    let mkt=d.mkt.slice(startIdx,endIdx+1);
+    let pmss=d.pmss.slice(startIdx,endIdx+1);
 
     const totalTick=sumNonNull(tick);
     const totalMkt=sumNonNull(mkt);
@@ -1982,7 +2243,7 @@ function renderCountriesRaw(){
         <div style="font-size:11px;color:var(--text3)">${months[0]} – ${months[months.length-1]}</div>
       </div>
       <div class="seg-card" style="text-align:center">
-        <div style="color:var(--text2);font-size:11px;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Total Marketing Spend</div>
+        <div style="color:var(--text2);font-size:11px;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Total Marketing Payments</div>
         <div style="font-size:22px;font-weight:700;color:var(--green)">${fmtCR(totalMkt,cur)}</div>
         <div style="font-size:11px;color:var(--text3)">${months[0]} – ${months[months.length-1]}</div>
       </div>
@@ -1998,15 +2259,41 @@ function renderCountriesRaw(){
       </div>
     `;
 
-    ['crTickChart','crMktChart','crPmssChart'].forEach(id=>{
+    ['crTickChart','crMktChart','crPmssChart','crMktByCountry','crShareByCountry'].forEach(id=>{
       if(charts['cr_'+id]){charts['cr_'+id].destroy();delete charts['cr_'+id];}
+    });
+
+    const countryRows=countries.map(c=>{
+      const base=CR_DATA[c];
+      const tickArr=base.tick.slice(startIdx,endIdx+1);
+      const mktArr=base.mkt.slice(startIdx,endIdx+1);
+      const totalTick=sumNonNull(tickArr);
+      const totalMkt=sumNonNull(mktArr);
+      const sharePct=totalTick>0?(totalMkt/totalTick*100):null;
+      return {country:c,totalMkt,sharePct,cur:base.cur};
+    });
+    const sortedMkt=[...countryRows].sort((a,b)=>(b.totalMkt||0)-(a.totalMkt||0));
+    const sortedShare=[...countryRows].sort((a,b)=>(b.sharePct??-999)-(a.sharePct??-999));
+    const mktPoints=sortedMkt.map(x=>({x:x.country,y:parseFloat((x.totalMkt||0).toFixed(2)),cur:x.cur}));
+    const shareVals=sortedShare.map(x=>x.sharePct!=null?parseFloat(x.sharePct.toFixed(3)):0);
+
+    charts['cr_crMktByCountry']=new Chart(document.getElementById('crMktByCountry'),{
+      type:'bar',
+      data:{datasets:[{data:mktPoints,backgroundColor:'rgba(121,226,255,0.65)',borderColor:'#79E2FF',borderWidth:1}]},
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{title:items=>items?.[0]?.raw?.x||'',label:ctx=>fmtCR(ctx.raw?.y,ctx.raw?.cur||'')}}},scales:{x:{type:'category',ticks:{color:'#6b7280',font:{size:10}}},y:{ticks:{color:'#6b7280',font:{size:10}},grid:{color:'rgba(255,255,255,0.06)'}}}}
+    });
+
+    charts['cr_crShareByCountry']=new Chart(document.getElementById('crShareByCountry'),{
+      type:'bar',
+      data:{labels:sortedShare.map(x=>x.country),datasets:[{data:shareVals,backgroundColor:'rgba(199,248,138,0.65)',borderColor:'#C7F88A',borderWidth:1}]},
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>`${ctx.raw.toFixed(3)}%`}}},scales:{x:{ticks:{color:'#6b7280',font:{size:10}}},y:{ticks:{color:'#6b7280',font:{size:10},callback:v=>v.toFixed(2)+'%'},grid:{color:'rgba(255,255,255,0.06)'}}}}
     });
 
     const chartOpts={responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{maxTicksLimit:8,color:'#6b7280',font:{size:10}},grid:{color:'rgba(255,255,255,0.04)'}},y:{ticks:{color:'#6b7280',font:{size:10}},grid:{color:'rgba(255,255,255,0.06)'}}}};
 
     charts['cr_crTickChart']=new Chart(document.getElementById('crTickChart'),{type:'bar',data:{labels:months,datasets:[{label:'Ticketing',data:tick,backgroundColor:'rgba(121,226,255,0.6)',borderColor:'#79E2FF',borderWidth:1}]},options:{...chartOpts,plugins:{...chartOpts.plugins,tooltip:{callbacks:{label:ctx=>fmtCR(ctx.raw,cur)}}}}});
 
-    charts['cr_crMktChart']=new Chart(document.getElementById('crMktChart'),{type:'bar',data:{labels:months,datasets:[{label:'Marketing',data:mkt,backgroundColor:'rgba(199,248,138,0.6)',borderColor:'#C7F88A',borderWidth:1}]},options:{...chartOpts,plugins:{...chartOpts.plugins,tooltip:{callbacks:{label:ctx=>fmtCR(ctx.raw,cur)}}}}});
+    charts['cr_crMktChart']=new Chart(document.getElementById('crMktChart'),{type:'bar',data:{labels:months,datasets:[{label:'Marketing Payments',data:mkt,backgroundColor:'rgba(199,248,138,0.6)',borderColor:'#C7F88A',borderWidth:1}]},options:{...chartOpts,plugins:{...chartOpts.plugins,tooltip:{callbacks:{label:ctx=>fmtCR(ctx.raw,cur)}}}}});
 
     charts['cr_crPmssChart']=new Chart(document.getElementById('crPmssChart'),{type:'line',data:{labels:months,datasets:[{label:'PMSS %',data:pmss.map(v=>v!=null?parseFloat((v*100).toFixed(4)):null),borderColor:'#F59E0B',backgroundColor:'rgba(245,158,11,0.12)',fill:true,tension:0.3,pointRadius:2,spanGaps:true}]},options:{...chartOpts,scales:{...chartOpts.scales,y:{...chartOpts.scales.y,ticks:{...chartOpts.scales.y.ticks,callback:v=>v.toFixed(3)+'%'}}},plugins:{...chartOpts.plugins,tooltip:{callbacks:{label:ctx=>ctx.raw!=null?ctx.raw.toFixed(4)+'%':'-'}}}}});
 
@@ -2014,7 +2301,7 @@ function renderCountriesRaw(){
     let rows=`<thead><tr style="border-bottom:1px solid var(--border)">
       <th style="text-align:left;padding:6px 8px;color:var(--text2)">Month</th>
       <th style="text-align:right;padding:6px 8px;color:var(--text2)">Ticketing Rev (${cur})</th>
-      <th style="text-align:right;padding:6px 8px;color:var(--text2)">Marketing Spend (${cur})</th>
+      <th style="text-align:right;padding:6px 8px;color:var(--text2)">Marketing Payments (${cur})</th>
       <th style="text-align:right;padding:6px 8px;color:var(--text2)">PMSS %</th>
     </tr></thead><tbody>`;
     const tableMonths=[...months].reverse();
@@ -2033,9 +2320,18 @@ function renderCountriesRaw(){
     tbl.innerHTML=rows;
   }
 
+  function toggleCustomRange(){
+    const mode=document.getElementById(rangeId).value;
+    const wrap=document.getElementById(customWrapId);
+    if(wrap)wrap.style.display=mode==='custom'?'flex':'none';
+  }
+
   crRender();
   document.getElementById(selId).addEventListener('change',crRender);
-  document.getElementById(rangeId).addEventListener('change',crRender);
+  document.getElementById(rangeId).addEventListener('change',()=>{toggleCustomRange();crRender();});
+  document.getElementById(fromId).addEventListener('change',crRender);
+  document.getElementById(toId).addEventListener('change',crRender);
+  toggleCustomRange();
 }
 
 /* ===== v3.0 TEAM STATS TAB ===== */
