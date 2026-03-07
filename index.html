@@ -123,6 +123,15 @@ body { font-family:'Inter',sans-serif; background:var(--bg); color:var(--text); 
 
 .card-tags { padding:8px 16px 12px; display:flex; flex-wrap:wrap; gap:4px; }
 .tag-sm { font-size:10px; padding:2px 7px; border-radius:8px; background:var(--surface3); color:var(--text2); }
+.notes-list { display:flex; flex-direction:column; gap:10px; }
+.note-card { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:12px; }
+.note-row { display:flex; justify-content:space-between; align-items:center; gap:8px; }
+.note-meta { color:var(--text2); font-size:12px; }
+.note-text { color:var(--text); font-size:13px; margin-top:6px; }
+.note-status { font-size:11px; padding:3px 8px; border-radius:999px; font-weight:600; }
+.ns-open { background:var(--amber-bg); color:var(--amber); }
+.ns-done { background:var(--green-bg); color:var(--green); }
+.ns-snoozed { background:var(--blue-bg); color:var(--blue); }
 
 /* CHARTS */
 .chart-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(400px,1fr)); gap:16px; margin-bottom:20px; }
@@ -487,6 +496,7 @@ tr:hover td { background:var(--surface2); }
 <div class="tab" data-tab="opportunities">Opportunities</div>
 <div class="tab" data-tab="organisers">📊 Organisers</div>
 <div class="tab" data-tab="events">🎫 Events</div>
+<div class="tab" data-tab="notes">📝 Notes</div>
 <div class="tab" data-tab="raw">Raw Data</div>
 <div class="tab" data-tab="team">👥 Team</div>
 <div class="tab" data-tab="activity">📋 Activity</div>
@@ -498,6 +508,7 @@ tr:hover td { background:var(--surface2); }
 <div class="tab-pane" id="pane-opportunities"></div>
 <div class="tab-pane" id="pane-organisers"></div>
 <div class="tab-pane" id="pane-events"></div>
+<div class="tab-pane" id="pane-notes"></div>
 <div class="tab-pane" id="pane-raw"></div>
 <div class="tab-pane" id="pane-team"></div>
 <div class="tab-pane" id="pane-activity"></div>
@@ -554,6 +565,8 @@ const USERS={alex:{name:'Alex',filter:null},taha:{name:'Taha',filter:null},kamil
 let curUser=null, ORGS=[], EVENTS=[], charts={};
 let orgAssign={}, evtAssign={};
 let ORG_ACTIONS=[], ORG_ACTIONS_SET=new Set();
+let ORG_MONTHLY={};
+let REPORT_MONTH_KEY='';
 async function loadActions(){
   try{
     const res=await fetch(window.location.origin+'/api/actions');
@@ -570,6 +583,70 @@ async function logOrgAction(org,action,note){
 let orgListPage=0, orgListSort={col:'ps',asc:false}, orgListSearch='';
 let evtListPage=0, evtListSort={col:'rev',asc:false}, evtListSearch='';
 let orgListView='all', evtListView='all';
+
+function monthKeyFromRawDate(raw){
+  if(raw==null)return null;
+  const s=String(raw).trim();
+  if(!s)return null;
+  if(s.includes('-')){
+    const p=s.split('-');
+    const y=parseInt(p[0],10),m=parseInt(p[1],10);
+    if(Number.isFinite(y)&&Number.isFinite(m)&&m>=1&&m<=12)return `${y}-${String(m).padStart(2,'0')}`;
+  }
+  if(/^\d+$/.test(s)){
+    let y,m;
+    if(s.length===6){y=parseInt(s.slice(0,4),10);m=parseInt(s.slice(4),10);}
+    else if(s.length===5){y=parseInt(s.slice(0,4),10);m=parseInt(s.slice(4),10);}
+    if(Number.isFinite(y)&&Number.isFinite(m)&&m>=1&&m<=12)return `${y}-${String(m).padStart(2,'0')}`;
+  }
+  return null;
+}
+function shiftMonthKey(key,deltaMonths){
+  if(!/^\d{4}-\d{2}$/.test(key||''))return null;
+  const y=parseInt(key.slice(0,4),10),m=parseInt(key.slice(5,7),10);
+  const d=new Date(y,m-1,1);d.setMonth(d.getMonth()+deltaMonths);
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+}
+function monthLabel(key){
+  if(!key)return '—';
+  const y=parseInt(key.slice(0,4),10),m=parseInt(key.slice(5,7),10);
+  return new Date(y,m-1,1).toLocaleString('en-GB',{month:'short',year:'numeric'});
+}
+function buildMonthlyCache(){
+  ORG_MONTHLY={};
+  EVENTS.forEach(e=>{
+    if((e.type||'').toLowerCase()!=='event')return;
+    const mk=monthKeyFromRawDate(e.date);
+    if(!mk)return;
+    const org=e.org||'—';
+    if(!ORG_MONTHLY[org])ORG_MONTHLY[org]={};
+    if(!ORG_MONTHLY[org][mk])ORG_MONTHLY[org][mk]={tick:0,mkt:0};
+    ORG_MONTHLY[org][mk].tick+=(parseFloat(e.rev)||0);
+    ORG_MONTHLY[org][mk].mkt+=(parseFloat(e.mkt)||0);
+  });
+  const d=new Date();d.setMonth(d.getMonth()-1);
+  const prevKey=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+  const hasPrev=Object.values(ORG_MONTHLY).some(m=>((m[prevKey]?.tick||0)>0)||((m[prevKey]?.mkt||0)>0));
+  if(hasPrev){REPORT_MONTH_KEY=prevKey;return;}
+  const keys=[...new Set(Object.values(ORG_MONTHLY).flatMap(m=>Object.keys(m)))].sort();
+  REPORT_MONTH_KEY=keys[keys.length-1]||prevKey;
+}
+function orgMonthMetrics(org){
+  const cur=ORG_MONTHLY?.[org]?.[REPORT_MONTH_KEY]||{tick:0,mkt:0};
+  const lyKey=shiftMonthKey(REPORT_MONTH_KEY,-12);
+  const ly=ORG_MONTHLY?.[org]?.[lyKey]||{tick:0,mkt:0};
+  const tyoy=ly.tick>0?((cur.tick-ly.tick)/ly.tick*100):null;
+  const myoy=ly.mkt>0?((cur.mkt-ly.mkt)/ly.mkt*100):null;
+  const share=cur.tick>0?(cur.mkt/cur.tick*100):0;
+  return {tick:cur.tick,mkt:cur.mkt,share,tyoy,myoy,lyKey};
+}
+function parseReminder(a){
+  if(!a||a.action!=='reminder'||!a.note)return null;
+  try{
+    const j=JSON.parse(a.note);
+    return {id:a.id,org:a.org,user_name:a.user_name,created_at:a.created_at,status:j.status||'open',due:j.due||'',text:j.text||'',done:!!j.done};
+  }catch(_){return null;}
+}
 
 /* FORMATTERS */
 const fmt=n=>{if(n==null)return'-';if(Math.abs(n)>=1e6)return(n/1e6).toFixed(1)+'M';if(Math.abs(n)>=1e3)return(n/1e3).toFixed(1)+'K';return n.toFixed?n.toFixed(0):n;};
@@ -702,6 +779,7 @@ function initData(){
     if(!curUser.filter)return true;
     return curUser.mode==='only'?e.country===curUser.filter:e.country!==curUser.filter;
   });
+  buildMonthlyCache();
 }
 
 /* TABS */
@@ -727,6 +805,7 @@ function switchTab(t){
   else if(t==='opportunities')renderOpps();
   else if(t==='organisers')renderOrganisers();
   else if(t==='events')renderEvents();
+  else if(t==='notes')renderNotes();
   else if(t==='raw')renderRaw();
   else if(t==='team')renderTeam();
   else if(t==='activity')renderActivity();
@@ -1260,6 +1339,7 @@ function renderOppCards(){
 
   let html='<div class="cards">';
   page.forEach(o=>{
+    const mm=orgMonthMetrics(o.organizer);
     const borderClr=o.sr==='hot'?'var(--red)':o.sr==='warm'?'var(--amber)':o.gt==='accelerating'?'var(--green)':o.gt==='decelerating'?'var(--red)':o.rs>60?'var(--purple)':'var(--border)';
     const isSelected=bulkSelected.has(o.organizer);
     html+=`<div class="card${isSelected?' selected':''}" style="cursor:pointer;border-left:4px solid ${borderClr}" onclick="showOrgEvents('${o.organizer.replace(/'/g,"\\'")}')">
@@ -1281,18 +1361,16 @@ function renderOppCards(){
         <div class="cm"><div class="cm-label">Priority</div><div class="cm-val" style="color:${o.ps>=70?'var(--green)':o.ps>=50?'var(--amber)':'var(--text2)'}">${o.ps}</div><div class="cm-sub">/ 100</div></div>
         <div class="cm"><div class="cm-label">Mkt Potential</div><div class="cm-val" style="color:var(--green)">${fmtCur(o.rp)}</div><div class="cm-sub">12M mkt uplift</div></div>
         <div class="cm"><div class="cm-label">Risk</div><div class="cm-val" style="color:${o.rs>70?'var(--red)':o.rs>40?'var(--amber)':'var(--green)'}">${o.rs}</div><div class="cm-sub">/ 100</div></div>
-        <div class="cm"><div class="cm-label">Ticketing</div><div class="cm-val">${fmtCur(o.tt)}</div><div class="cm-sub">YoY ${fmtPct(o.tyoy25)}</div></div>
-        <div class="cm"><div class="cm-label">Marketing</div><div class="cm-val">${fmtCur(o.tm)}</div><div class="cm-sub">YoY ${fmtPct(o.myoy25)}</div></div>
-        <div class="cm"><div class="cm-label">Share Gap</div><div class="cm-val" style="color:${o.sg>5?'var(--red)':o.sg>2?'var(--amber)':'var(--green)'}">${o.sg>0?'+':''}${o.sg.toFixed(1)}%</div><div class="cm-sub">vs benchmark</div></div>
+        <div class="cm"><div class="cm-label">Ticketing (${monthLabel(REPORT_MONTH_KEY)})</div><div class="cm-val">${fmtCur(mm.tick)}</div><div class="cm-sub">YoY ${mm.tyoy!=null?fmtPct(mm.tyoy):'-'}</div></div>
+        <div class="cm"><div class="cm-label">Marketing (${monthLabel(REPORT_MONTH_KEY)})</div><div class="cm-val">${fmtCur(mm.mkt)}</div><div class="cm-sub">YoY ${mm.myoy!=null?fmtPct(mm.myoy):'-'}</div></div>
+        <div class="cm"><div class="cm-label">Share</div><div class="cm-val" style="color:${mm.share>=5?'var(--green)':mm.share>0?'var(--amber)':'var(--red)'}">${mm.share.toFixed(2)}%</div><div class="cm-sub">same month</div></div>
       </div>
       <div class="card-action" style="border-left:3px solid ${actionColor(o.nba)}">
         <span class="action-text" style="color:${actionColor(o.nba)}">${o.nba}</span>
         <div class="card-act-btns">
           ${ORG_ACTIONS_SET.has(o.organizer)?`<span class="act-done">✅</span>`:`<button class="act-btn" onclick="event.stopPropagation();actBtnClick(this,'${o.organizer.replace(/'/g,"\\'")}')">Worked on it</button>`}
           <button class="act-btn act-btn-sm" title="Log email" onclick="event.stopPropagation();quickTouchAction('${o.organizer.replace(/'/g,"\\'")}','email',this)">📧</button>
-          <button class="act-btn act-btn-sm" title="Log meeting" onclick="event.stopPropagation();quickTouchAction('${o.organizer.replace(/'/g,"\\'")}','meeting',this)">🤝</button>
-          <button class="act-btn act-btn-sm" title="Flag for follow-up" onclick="event.stopPropagation();quickTouchAction('${o.organizer.replace(/'/g,"\\'")}','flag',this)">🚩</button>
-          <button class="act-btn act-btn-sm" onclick="event.stopPropagation();showNoteModal('${o.organizer.replace(/'/g,"\\'")}')">📝</button>
+          <button class="act-btn act-btn-sm" title="Add reminder" onclick="event.stopPropagation();showReminderModal('${o.organizer.replace(/'/g,"\\'")}')">⏰</button>
           <button class="act-btn-task" onclick="event.stopPropagation();showTaskModal('${o.organizer.replace(/'/g,"\\'")}')">📋 Task</button>
         </div>
       </div>
@@ -2092,6 +2170,66 @@ async function submitNote(org){
   const overlay=ta.closest('.note-modal-overlay');
   await logOrgAction(org,'note',note);
   if(overlay)overlay.remove();
+}
+
+function showReminderModal(org){
+  const overlay=document.createElement('div');
+  overlay.className='note-modal-overlay';
+  overlay.onclick=e=>{if(e.target===overlay)overlay.remove();};
+  const d=new Date();d.setDate(d.getDate()+7);
+  const due=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  overlay.innerHTML=`<div class="note-modal">
+    <h3>⏰ Reminder — ${org}</h3>
+    <div class="nm-org">Create follow-up reminder</div>
+    <label style="display:block;font-size:12px;color:var(--text2);margin:8px 0 4px">Reminder date</label>
+    <input id="rmDue" type="date" value="${due}" style="width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text)">
+    <label style="display:block;font-size:12px;color:var(--text2);margin:10px 0 4px">Status</label>
+    <select id="rmStatus" style="width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text)">
+      <option value="open">Open</option>
+      <option value="snoozed">Snoozed</option>
+      <option value="done">Done</option>
+    </select>
+    <label style="display:block;font-size:12px;color:var(--text2);margin:10px 0 4px">Note</label>
+    <textarea id="rmText" placeholder="What to do on reminder?" style="width:100%;min-height:90px;padding:10px 12px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text)"></textarea>
+    <div class="nm-btns">
+      <button class="nm-btn nm-cancel" onclick="this.closest('.note-modal-overlay').remove()">Cancel</button>
+      <button class="nm-btn nm-save" onclick="submitReminder('${org.replace(/'/g,"\\'")}')">Save Reminder</button>
+    </div>
+  </div>`;
+  document.body.appendChild(overlay);
+}
+async function submitReminder(org){
+  const due=document.getElementById('rmDue')?.value||'';
+  const status=document.getElementById('rmStatus')?.value||'open';
+  const text=(document.getElementById('rmText')?.value||'').trim();
+  const payload={due,status,text,done:status==='done'};
+  await logOrgAction(org,'reminder',JSON.stringify(payload));
+  document.querySelector('.note-modal-overlay')?.remove();
+}
+function renderNotes(){
+  const p=document.getElementById('pane-notes');
+  if(!p)return;
+  const reminders=ORG_ACTIONS.map(parseReminder).filter(Boolean);
+  const now=new Date();
+  reminders.sort((a,b)=>(a.due||'9999').localeCompare(b.due||'9999'));
+  const overdue=reminders.filter(r=>r.status!=='done'&&r.due&&new Date(r.due)<new Date(now.toISOString().slice(0,10))).length;
+  const open=reminders.filter(r=>r.status==='open').length;
+  const done=reminders.filter(r=>r.status==='done').length;
+  p.innerHTML=`
+    <div class="kpi-row">
+      <div class="kpi"><div class="kpi-label">Open Reminders</div><div class="kpi-val">${open}</div></div>
+      <div class="kpi"><div class="kpi-label">Overdue</div><div class="kpi-val" style="color:var(--red)">${overdue}</div></div>
+      <div class="kpi"><div class="kpi-label">Done</div><div class="kpi-val" style="color:var(--green)">${done}</div></div>
+    </div>
+    <div class="notes-list">
+      ${reminders.length?reminders.map(r=>`<div class="note-card">
+        <div class="note-row">
+          <div><b>${r.org}</b><div class="note-meta">${r.user_name||'Team'} · due ${r.due||'—'}</div></div>
+          <span class="note-status ${r.status==='done'?'ns-done':r.status==='snoozed'?'ns-snoozed':'ns-open'}">${r.status}</span>
+        </div>
+        <div class="note-text">${r.text||'—'}</div>
+      </div>`).join(''):'<div class="seg-card">No reminders yet. Add from Opportunities using ⏰.</div>'}
+    </div>`;
 }
 
 /* ===== v3.0 ASANA TASK CREATION ===== */
