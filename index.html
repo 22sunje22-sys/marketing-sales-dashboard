@@ -647,6 +647,22 @@ function parseReminder(a){
     return {id:a.id,org:a.org,user_name:a.user_name,created_at:a.created_at,status:j.status||'open',due:j.due||'',text:j.text||'',done:!!j.done};
   }catch(_){return null;}
 }
+function isUntappedOrg(o){
+  const mm=orgMonthMetrics(o.organizer);
+  return (mm.tick>0)&&(mm.mkt<=0);
+}
+function isDroppedOrg(o){
+  const mm=orgMonthMetrics(o.organizer);
+  const lyMkt=(ORG_MONTHLY?.[o.organizer]?.[mm.lyKey]?.mkt)||0;
+  return (lyMkt>0&&mm.mkt<=0)||(mm.myoy!=null&&mm.myoy<=-30);
+}
+function isGrowingOrg(o){
+  const mm=orgMonthMetrics(o.organizer);
+  return (mm.myoy!=null&&mm.myoy>=20)||(mm.tyoy!=null&&mm.tyoy>=20);
+}
+function isAttentionOrg(o){
+  return o.ps>=80||o.rs>=60||daysSinceLastAction(o.organizer)>30||isDroppedOrg(o);
+}
 
 /* FORMATTERS */
 const fmt=n=>{if(n==null)return'-';if(Math.abs(n)>=1e6)return(n/1e6).toFixed(1)+'M';if(Math.abs(n)>=1e3)return(n/1e3).toFixed(1)+'K';return n.toFixed?n.toFixed(0):n;};
@@ -1085,19 +1101,6 @@ function renderOverview(){
       }).join('')}
     </div>
   </div>
-  <div class="activity-feed" id="overviewFeed"><h3>📋 Recent Team Activity</h3><div class="af-list" id="afList"><div style="color:var(--text3);font-size:12px;padding:8px 0">Loading activity...</div></div></div>
-  <div class="chart-grid">
-    <div class="chart-box"><h3>Revenue Trend (Ticketing vs Marketing)</h3><canvas id="chRevTrend"></canvas></div>
-    <div class="chart-box"><h3>Sales Readiness Distribution</h3><canvas id="chReadiness"></canvas></div>
-    <div class="chart-box"><h3>Lifecycle Stage Breakdown</h3><canvas id="chLifecycle"></canvas></div>
-    <div class="chart-box"><h3>Growth Trajectory</h3><canvas id="chTrajectory"></canvas></div>
-  </div>
-  <div class="seg-grid">
-    <div class="seg-card"><h3>Top 5 by Priority Score</h3><div id="segTop5PS"></div></div>
-    <div class="seg-card"><h3>Top 5 Mkt Revenue Potential</h3><div id="segTop5RP"></div></div>
-    <div class="seg-card"><h3>Biggest Declines (YoY)</h3><div id="segDeclines"></div></div>
-    <div class="seg-card"><h3>Fastest Growing</h3><div id="segGrowing"></div></div>
-  </div>
   ${countryRadarHtml}`;
 
   // Country YoY charts (scope-aware by user)
@@ -1125,7 +1128,7 @@ function renderOverview(){
   const years=[2023,2024,2025,2026];
   const tickByYear=years.map(y=>ORGS.reduce((s,o)=>s+(o['t'+(y-2000)]||0),0));
   const mktByYear=years.map(y=>ORGS.reduce((s,o)=>s+(o['m'+(y-2000)]||0),0));
-  charts.revTrend=new Chart(document.getElementById('chRevTrend'),{type:'bar',data:{labels:years,datasets:[
+  if(document.getElementById('chRevTrend'))charts.revTrend=new Chart(document.getElementById('chRevTrend'),{type:'bar',data:{labels:years,datasets:[
     {label:'Ticketing',data:tickByYear,backgroundColor:'rgba(59,130,246,0.7)',borderRadius:4,yAxisID:'y'},
     {label:'Marketing',data:mktByYear,backgroundColor:'rgba(16,185,129,0.7)',borderRadius:4,yAxisID:'y1'}
   ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#8fa8b4'}}},scales:{x:{ticks:{color:'#5d7a86'}},y:{position:'left',title:{display:true,text:'Ticketing',color:'#5d7a86'},ticks:{color:'#5d7a86',callback:v=>fmtCur(v)}},y1:{position:'right',title:{display:true,text:'Marketing',color:'#10b981'},ticks:{color:'#10b981',callback:v=>fmtCur(v)},grid:{drawOnChartArea:false}}}}});
@@ -1133,35 +1136,41 @@ function renderOverview(){
   // Readiness donut
   const readCounts={};ORGS.forEach(o=>{readCounts[o.sr]=(readCounts[o.sr]||0)+1;});
   const srKeys=Object.keys(readCounts);
-  charts.readiness=new Chart(document.getElementById('chReadiness'),{type:'doughnut',data:{labels:srKeys.map(k=>k.charAt(0).toUpperCase()+k.slice(1)),datasets:[{data:Object.values(readCounts),backgroundColor:['#EF4444','#F59E0B','#6b7280','#79E2FF']}]},options:{responsive:true,maintainAspectRatio:false,onClick:(e,els)=>{if(els.length>0){drillDown('sr_'+srKeys[els[0].index]);}},plugins:{legend:{position:'right',labels:{color:'#8fa8b4'}},tooltip:{callbacks:{afterLabel:()=>'Click to drill down'}}}}});
-  document.getElementById('chReadiness').style.cursor='pointer'; 
+  if(document.getElementById('chReadiness')){
+    charts.readiness=new Chart(document.getElementById('chReadiness'),{type:'doughnut',data:{labels:srKeys.map(k=>k.charAt(0).toUpperCase()+k.slice(1)),datasets:[{data:Object.values(readCounts),backgroundColor:['#EF4444','#F59E0B','#6b7280','#79E2FF']}]},options:{responsive:true,maintainAspectRatio:false,onClick:(e,els)=>{if(els.length>0){drillDown('sr_'+srKeys[els[0].index]);}},plugins:{legend:{position:'right',labels:{color:'#8fa8b4'}},tooltip:{callbacks:{afterLabel:()=>'Click to drill down'}}}}});
+    document.getElementById('chReadiness').style.cursor='pointer';
+  }
 
   // Lifecycle donut
   const lcCounts={};ORGS.forEach(o=>{lcCounts[o.lc]=(lcCounts[o.lc]||0)+1;});
   const lcColors={prospect:'#F59E0B',active:'#79E2FF',growth:'#C7F88A','at-risk':'#EF4444',mature:'#8B5CF6',dormant:'#6b7280'};
   const lcKeys=Object.keys(lcCounts);
-  charts.lifecycle=new Chart(document.getElementById('chLifecycle'),{type:'doughnut',data:{labels:lcKeys.map(k=>k.charAt(0).toUpperCase()+k.slice(1)),datasets:[{data:Object.values(lcCounts),backgroundColor:lcKeys.map(k=>lcColors[k]||'#6b7280')}]},options:{responsive:true,maintainAspectRatio:false,onClick:(e,els)=>{if(els.length>0){drillDown('lc_'+lcKeys[els[0].index]);}},plugins:{legend:{position:'right',labels:{color:'#8fa8b4'}},tooltip:{callbacks:{afterLabel:()=>'Click to drill down'}}}}});
-  document.getElementById('chLifecycle').style.cursor='pointer'; 
+  if(document.getElementById('chLifecycle')){
+    charts.lifecycle=new Chart(document.getElementById('chLifecycle'),{type:'doughnut',data:{labels:lcKeys.map(k=>k.charAt(0).toUpperCase()+k.slice(1)),datasets:[{data:Object.values(lcCounts),backgroundColor:lcKeys.map(k=>lcColors[k]||'#6b7280')}]},options:{responsive:true,maintainAspectRatio:false,onClick:(e,els)=>{if(els.length>0){drillDown('lc_'+lcKeys[els[0].index]);}},plugins:{legend:{position:'right',labels:{color:'#8fa8b4'}},tooltip:{callbacks:{afterLabel:()=>'Click to drill down'}}}}});
+    document.getElementById('chLifecycle').style.cursor='pointer';
+  }
 
   // Trajectory bar
   const gtCounts={};ORGS.forEach(o=>{gtCounts[o.gt]=(gtCounts[o.gt]||0)+1;});
   const gtColors={accelerating:'#C7F88A',stable:'#79E2FF',decelerating:'#EF4444',mixed:'#F59E0B'};
   const gtKeys=Object.keys(gtCounts);
-  charts.trajectory=new Chart(document.getElementById('chTrajectory'),{type:'bar',data:{labels:gtKeys.map(k=>k.charAt(0).toUpperCase()+k.slice(1)),datasets:[{data:Object.values(gtCounts),backgroundColor:gtKeys.map(k=>gtColors[k]||'#6b7280'),borderRadius:6}]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,onClick:(e,els)=>{if(els.length>0){drillDown('traj_'+gtKeys[els[0].index]);}},plugins:{legend:{display:false},tooltip:{callbacks:{afterLabel:()=>'Click to drill down'}}},scales:{x:{ticks:{color:'#5d7a86'}},y:{ticks:{color:'#8fa8b4'}}}}});
-  document.getElementById('chTrajectory').style.cursor='pointer'; 
+  if(document.getElementById('chTrajectory')){
+    charts.trajectory=new Chart(document.getElementById('chTrajectory'),{type:'bar',data:{labels:gtKeys.map(k=>k.charAt(0).toUpperCase()+k.slice(1)),datasets:[{data:Object.values(gtCounts),backgroundColor:gtKeys.map(k=>gtColors[k]||'#6b7280'),borderRadius:6}]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,onClick:(e,els)=>{if(els.length>0){drillDown('traj_'+gtKeys[els[0].index]);}},plugins:{legend:{display:false},tooltip:{callbacks:{afterLabel:()=>'Click to drill down'}}},scales:{x:{ticks:{color:'#5d7a86'}},y:{ticks:{color:'#8fa8b4'}}}}});
+    document.getElementById('chTrajectory').style.cursor='pointer';
+  }
 
   // Segments
   const top5ps=[...ORGS].sort((a,b)=>b.ps-a.ps).slice(0,5);
-  document.getElementById('segTop5PS').innerHTML=top5ps.map(o=>`<div class="seg-row seg-click" onclick="drillDown('all','${o.organizer.replace(/'/g,"\\'")}')" title="View in Opportunities"><span>${o.organizer.substring(0,35)}</span><span><b>${o.ps}</b> score</span></div>`).join('');
+  if(document.getElementById('segTop5PS'))document.getElementById('segTop5PS').innerHTML=top5ps.map(o=>`<div class="seg-row seg-click" onclick="drillDown('all','${o.organizer.replace(/'/g,"\\'")}')" title="View in Opportunities"><span>${o.organizer.substring(0,35)}</span><span><b>${o.ps}</b> score</span></div>`).join('');
   const top5rp=[...ORGS].sort((a,b)=>b.rp-a.rp).slice(0,5);
-  document.getElementById('segTop5RP').innerHTML=top5rp.map(o=>`<div class="seg-row seg-click" onclick="drillDown('all','${o.organizer.replace(/'/g,"\\'")}')" title="View in Opportunities"><span>${o.organizer.substring(0,35)}</span><span style="color:var(--green)">${fmtCur(o.rp)}</span></div>`).join('');
+  if(document.getElementById('segTop5RP'))document.getElementById('segTop5RP').innerHTML=top5rp.map(o=>`<div class="seg-row seg-click" onclick="drillDown('all','${o.organizer.replace(/'/g,"\\'")}')" title="View in Opportunities"><span>${o.organizer.substring(0,35)}</span><span style="color:var(--green)">${fmtCur(o.rp)}</span></div>`).join('');
   const declines=[...ORGS].filter(o=>o.tyoy25<0).sort((a,b)=>a.tyoy25-b.tyoy25).slice(0,5);
-  document.getElementById('segDeclines').innerHTML=declines.map(o=>`<div class="seg-row seg-click" onclick="drillDown('all','${o.organizer.replace(/'/g,"\\'")}')" title="View in Opportunities"><span>${o.organizer.substring(0,35)}</span><span style="color:var(--red)">${fmtPct(o.tyoy25)}</span></div>`).join('');
+  if(document.getElementById('segDeclines'))document.getElementById('segDeclines').innerHTML=declines.map(o=>`<div class="seg-row seg-click" onclick="drillDown('all','${o.organizer.replace(/'/g,"\\'")}')" title="View in Opportunities"><span>${o.organizer.substring(0,35)}</span><span style="color:var(--red)">${fmtPct(o.tyoy25)}</span></div>`).join('');
   const growers=[...ORGS].filter(o=>o.myoy25>0).sort((a,b)=>b.myoy25-a.myoy25).slice(0,5);
-  document.getElementById('segGrowing').innerHTML=growers.map(o=>`<div class="seg-row seg-click" onclick="drillDown('all','${o.organizer.replace(/'/g,"\\'")}')" title="View in Opportunities"><span>${o.organizer.substring(0,35)}</span><span style="color:var(--green)">${fmtPct(o.myoy25)}</span></div>`).join('');
+  if(document.getElementById('segGrowing'))document.getElementById('segGrowing').innerHTML=growers.map(o=>`<div class="seg-row seg-click" onclick="drillDown('all','${o.organizer.replace(/'/g,"\\'")}')" title="View in Opportunities"><span>${o.organizer.substring(0,35)}</span><span style="color:var(--green)">${fmtPct(o.myoy25)}</span></div>`).join('');
 
   // Activity feed
-  loadOverviewFeed();
+  if(document.getElementById('afList'))loadOverviewFeed();
 }
 async function loadOverviewFeed(){
   const el=document.getElementById('afList');
@@ -1249,30 +1258,17 @@ function renderOpps(){
   let html=`
   <div class="view-chips">
     <div class="view-chip vc-all ${oppView==='all'?'active':''}" onclick="oppView='all';oppPage=0;renderOppCards()">All (${ORGS.length})</div>
-    <div class="view-chip vc-hot ${oppView==='hot'?'active':''}" onclick="oppView='hot';oppPage=0;logAction('view_filter','hot','opportunities');renderOppCards()">🔥 Hot (${ORGS.filter(o=>o.sr==='hot').length})</div>
-    <div class="view-chip vc-warm ${oppView==='warm'?'active':''}" onclick="oppView='warm';oppPage=0;logAction('view_filter','warm','opportunities');renderOppCards()">🟡 Warm (${ORGS.filter(o=>o.sr==='warm').length})</div>
-    <div class="view-chip vc-growth ${oppView==='growth'?'active':''}" onclick="oppView='growth';oppPage=0;logAction('view_filter','growth','opportunities');renderOppCards()">🚀 Growing (${ORGS.filter(o=>o.gt==='accelerating').length})</div>
-    <div class="view-chip vc-risk ${oppView==='risk'?'active':''}" onclick="oppView='risk';oppPage=0;logAction('view_filter','risk','opportunities');renderOppCards()">⚠️ At Risk (${ORGS.filter(o=>o.rs>60).length})</div>
-    <div class="view-chip vc-action ${oppView==='action_month'?'active':''}" onclick="oppView='action_month';oppPage=0;logAction('view_filter','action_month','opportunities');renderOppCards()">⚡ Action This Month (${ORGS.filter(o=>(o.tags.includes('Call Today')||o.ps>=80||!ORG_ACTIONS_SET.has(o.organizer))).length})</div>
-    <div class="view-chip vc-all ${oppView==='big'?'active':''}" onclick="oppView='big';oppPage=0;logAction('view_filter','big','opportunities');renderOppCards()">🏢 Big (${ORGS.filter(o=>(o.tt||0)>=500000).length})</div>
-    <div class="view-chip vc-all ${oppView==='small'?'active':''}" onclick="oppView='small';oppPage=0;logAction('view_filter','small','opportunities');renderOppCards()">🧩 Small (${ORGS.filter(o=>(o.tt||0)<50000).length})</div>
-    <div class="view-chip vc-growth ${oppView==='big_opp'?'active':''}" onclick="oppView='big_opp';oppPage=0;logAction('view_filter','big_opp','opportunities');renderOppCards()">💰 Big Opportunity (${ORGS.filter(o=>(o.rp||0)>=100000).length})</div>
-    <div class="view-chip vc-noact ${oppView==='stale'?'active':''}" onclick="oppView='stale';oppPage=0;logAction('view_filter','stale','opportunities');renderOppCards()">🕒 Stale >30d (${ORGS.filter(o=>daysSinceLastAction(o.organizer)>30).length})</div>
-    <div class="view-chip vc-noact ${oppView==='no_actions'?'active':''}" onclick="oppView='no_actions';oppPage=0;renderOppCards()">🆕 Without Actions (${ORGS.filter(o=>!ORG_ACTIONS_SET.has(o.organizer)).length})</div>
-    <div class="view-chip vc-acted ${oppView==='acted'?'active':''}" onclick="oppView='acted';oppPage=0;renderOppCards()">✅ Worked On (${ORGS.filter(o=>ORG_ACTIONS_SET.has(o.organizer)).length})</div>
-    ${oppView.startsWith('traj_')?`<div class="view-chip active" style="background:var(--accent);color:var(--pl-storm);" onclick="oppView='all';oppPage=0;renderOppCards()">📊 ${oppView.replace('traj_','').charAt(0).toUpperCase()+oppView.replace('traj_','').slice(1)} (${ORGS.filter(o=>o.gt===oppView.replace('traj_','')).length}) ✕</div>`:''}
-    ${oppView.startsWith('sr_')?`<div class="view-chip active" style="background:var(--accent);color:var(--pl-storm);" onclick="oppView='all';oppPage=0;renderOppCards()">🎯 ${oppView.replace('sr_','').charAt(0).toUpperCase()+oppView.replace('sr_','').slice(1)} Readiness (${ORGS.filter(o=>o.sr===oppView.replace('sr_','')).length}) ✕</div>`:''}
-    ${oppView.startsWith('lc_')?`<div class="view-chip active" style="background:var(--accent);color:var(--pl-storm);" onclick="oppView='all';oppPage=0;renderOppCards()">🔄 ${oppView.replace('lc_','').charAt(0).toUpperCase()+oppView.replace('lc_','').slice(1)} Lifecycle (${ORGS.filter(o=>o.lc===oppView.replace('lc_','')).length}) ✕</div>`:''}
+    <div class="view-chip vc-action ${oppView==='attention'?'active':''}" onclick="oppView='attention';oppPage=0;renderOppCards()">⚡ Attention (${ORGS.filter(isAttentionOrg).length})</div>
+    <div class="view-chip vc-noact ${oppView==='untapped'?'active':''}" onclick="oppView='untapped';oppPage=0;renderOppCards()">🧩 Untapped (${ORGS.filter(isUntappedOrg).length})</div>
+    <div class="view-chip vc-risk ${oppView==='dropped'?'active':''}" onclick="oppView='dropped';oppPage=0;renderOppCards()">📉 Dropped (${ORGS.filter(isDroppedOrg).length})</div>
+    <div class="view-chip vc-growth ${oppView==='growing_now'?'active':''}" onclick="oppView='growing_now';oppPage=0;renderOppCards()">🚀 Growing (${ORGS.filter(isGrowingOrg).length})</div>
   </div>
   <div class="sales-focus">
-    <div class="sf-item hot">🔥 Hot now: <b>${ORGS.filter(o=>o.sr==='hot').length}</b></div>
-    <div class="sf-item">⚡ Action This Month: <b>${ORGS.filter(o=>(o.tags.includes('Call Today')||o.ps>=80||!ORG_ACTIONS_SET.has(o.organizer))).length}</b></div>
-    <div class="sf-item">🏢 Big: <b>${ORGS.filter(o=>(o.tt||0)>=500000).length}</b></div>
-    <div class="sf-item">🧩 Small: <b>${ORGS.filter(o=>(o.tt||0)<50000).length}</b></div>
-    <div class="sf-item pot">💰 Big Opportunity: <b>${ORGS.filter(o=>(o.rp||0)>=100000).length}</b></div>
-    <div class="sf-item">🕒 Stale >30d: <b>${ORGS.filter(o=>daysSinceLastAction(o.organizer)>30).length}</b></div>
-    <div class="sf-item">🆕 No actions: <b>${ORGS.filter(o=>!ORG_ACTIONS_SET.has(o.organizer)).length}</b></div>
-    <div class="sf-item pot">🟢 Open potential: <b>${fmtCur(ORGS.reduce((s,o)=>s+(o.rp||0),0))}</b></div>
+    <div class="sf-item">📅 Report month: <b>${monthLabel(REPORT_MONTH_KEY)}</b></div>
+    <div class="sf-item">⚡ Attention: <b>${ORGS.filter(isAttentionOrg).length}</b></div>
+    <div class="sf-item">🧩 Untapped: <b>${ORGS.filter(isUntappedOrg).length}</b></div>
+    <div class="sf-item">📉 Dropped: <b>${ORGS.filter(isDroppedOrg).length}</b></div>
+    <div class="sf-item">🚀 Growing: <b>${ORGS.filter(isGrowingOrg).length}</b></div>
   </div>
   <div class="quick-queue">
     <div class="qq-head"><span>🚀 Sales Queue (This Month)</span><span id="qqCount"></span></div>
@@ -1287,7 +1283,6 @@ function renderOpps(){
     ${oppFilters.search?`<button class="btn-clear-filter" onclick="oppFilters.search='';oppView='all';oppPage=0;renderOpps()" title="Clear search filter">✕ Clear</button>`:''}
     <button class="btn-export" onclick="sess.exports++;logAction('export','csv_filtered','opportunities');exportCSV()">📥 Export CSV</button>
   </div>
-  <div class="chips">${Object.entries(TAG_META).filter(([k])=>tagCounts[k]).map(([k,v])=>`<div class="chip ${oppFilters.tag===k?'active':''}" data-tag="${k}" onclick="oppFilters.tag=oppFilters.tag==='${k}'?'':'${k}';oppPage=0;logAction('filter_tag','${k}','opportunities');renderOppCards()">${v.i} ${v.l} <span class="cnt">${tagCounts[k]||0}</span></div>`).join('')}</div>
   <div id="oppCards"></div>
   <div class="pag" id="oppPag"></div>`;
 
@@ -1297,7 +1292,11 @@ function renderOpps(){
 
 function getFilteredOrgs(){
   let list=ORGS;
-  if(oppView==='hot')list=list.filter(o=>o.sr==='hot');
+  if(oppView==='attention')list=list.filter(isAttentionOrg);
+  else if(oppView==='untapped')list=list.filter(isUntappedOrg);
+  else if(oppView==='dropped')list=list.filter(isDroppedOrg);
+  else if(oppView==='growing_now')list=list.filter(isGrowingOrg);
+  else if(oppView==='hot')list=list.filter(o=>o.sr==='hot');
   else if(oppView==='warm')list=list.filter(o=>o.sr==='warm');
   else if(oppView==='growth')list=list.filter(o=>o.gt==='accelerating');
   else if(oppView==='risk')list=list.filter(o=>o.rs>60);
@@ -1360,7 +1359,6 @@ function renderOppCards(){
       <div class="card-metrics">
         <div class="cm"><div class="cm-label">Priority</div><div class="cm-val" style="color:${o.ps>=70?'var(--green)':o.ps>=50?'var(--amber)':'var(--text2)'}">${o.ps}</div><div class="cm-sub">/ 100</div></div>
         <div class="cm"><div class="cm-label">Mkt Potential</div><div class="cm-val" style="color:var(--green)">${fmtCur(o.rp)}</div><div class="cm-sub">12M mkt uplift</div></div>
-        <div class="cm"><div class="cm-label">Risk</div><div class="cm-val" style="color:${o.rs>70?'var(--red)':o.rs>40?'var(--amber)':'var(--green)'}">${o.rs}</div><div class="cm-sub">/ 100</div></div>
         <div class="cm"><div class="cm-label">Ticketing (${monthLabel(REPORT_MONTH_KEY)})</div><div class="cm-val">${fmtCur(mm.tick)}</div><div class="cm-sub">YoY ${mm.tyoy!=null?fmtPct(mm.tyoy):'-'}</div></div>
         <div class="cm"><div class="cm-label">Marketing (${monthLabel(REPORT_MONTH_KEY)})</div><div class="cm-val">${fmtCur(mm.mkt)}</div><div class="cm-sub">YoY ${mm.myoy!=null?fmtPct(mm.myoy):'-'}</div></div>
         <div class="cm"><div class="cm-label">Share</div><div class="cm-val" style="color:${mm.share>=5?'var(--green)':mm.share>0?'var(--amber)':'var(--red)'}">${mm.share.toFixed(2)}%</div><div class="cm-sub">same month</div></div>
@@ -1374,7 +1372,7 @@ function renderOppCards(){
           <button class="act-btn-task" onclick="event.stopPropagation();showTaskModal('${o.organizer.replace(/'/g,"\\'")}')">📋 Task</button>
         </div>
       </div>
-      ${o.tags.length?`<div class="card-tags">${o.tags.map(t=>`<span class="tag-sm">${t}</span>`).join('')}</div>`:''}
+      <div class="card-tags"><span class="tag-sm">Open card for full detail</span></div>
     </div>`;
   });
   html+='</div>';
@@ -1460,6 +1458,10 @@ function updateViewChipCounts(){
   if(oppFilters.tag)base=base.filter(o=>o.tags.includes(oppFilters.tag));
   const counts={
     all:base.length,
+    attention:base.filter(isAttentionOrg).length,
+    untapped:base.filter(isUntappedOrg).length,
+    dropped:base.filter(isDroppedOrg).length,
+    growing_now:base.filter(isGrowingOrg).length,
     hot:base.filter(o=>o.sr==='hot').length,
     warm:base.filter(o=>o.sr==='warm').length,
     growth:base.filter(o=>o.gt==='accelerating').length,
@@ -1474,6 +1476,10 @@ function updateViewChipCounts(){
   };
   const chipMap={
     'all':`All (${counts.all})`,
+    'attention':`⚡ Attention (${counts.attention})`,
+    'untapped':`🧩 Untapped (${counts.untapped})`,
+    'dropped':`📉 Dropped (${counts.dropped})`,
+    'growing_now':`🚀 Growing (${counts.growing_now})`,
     'hot':`🔥 Hot (${counts.hot})`,
     'warm':`🟡 Warm (${counts.warm})`,
     'growth':`🚀 Growing (${counts.growth})`,
