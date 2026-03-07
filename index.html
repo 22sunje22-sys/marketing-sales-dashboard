@@ -485,7 +485,6 @@ tr:hover td { background:var(--surface2); }
 <div class="tab active" data-tab="overview">Overview</div>
 <div class="tab" data-tab="pipeline">Pipeline</div>
 <div class="tab" data-tab="opportunities">Opportunities</div>
-<div class="tab" data-tab="performance">Performance</div>
 <div class="tab" data-tab="organisers">📊 Organisers</div>
 <div class="tab" data-tab="events">🎫 Events</div>
 <div class="tab" data-tab="raw">Raw Data</div>
@@ -497,7 +496,6 @@ tr:hover td { background:var(--surface2); }
 <div class="tab-pane active" id="pane-overview"></div>
 <div class="tab-pane" id="pane-pipeline"></div>
 <div class="tab-pane" id="pane-opportunities"></div>
-<div class="tab-pane" id="pane-performance"></div>
 <div class="tab-pane" id="pane-organisers"></div>
 <div class="tab-pane" id="pane-events"></div>
 <div class="tab-pane" id="pane-raw"></div>
@@ -571,6 +569,7 @@ async function logOrgAction(org,action,note){
 }
 let orgListPage=0, orgListSort={col:'ps',asc:false}, orgListSearch='';
 let evtListPage=0, evtListSort={col:'rev',asc:false}, evtListSearch='';
+let orgListView='all', evtListView='all';
 
 /* FORMATTERS */
 const fmt=n=>{if(n==null)return'-';if(Math.abs(n)>=1e6)return(n/1e6).toFixed(1)+'M';if(Math.abs(n)>=1e3)return(n/1e3).toFixed(1)+'K';return n.toFixed?n.toFixed(0):n;};
@@ -663,6 +662,11 @@ async function doLogin(){
   /* Countries RAW tab — only for Alex */
   const crTab=document.querySelector('.tab[data-tab="countries-raw"]');
   if(crTab)crTab.style.display=curUser.id==='alex'?'':'none';
+  const teamTab=document.querySelector('.tab[data-tab="team"]');
+  const activityTab=document.querySelector('.tab[data-tab="activity"]');
+  const canTeam=curUser.id==='alex'||curUser.id==='taha';
+  if(teamTab)teamTab.style.display=canTeam?'':'none';
+  if(activityTab)activityTab.style.display=canTeam?'':'none';
   document.getElementById('loginWrap').style.display='none';
   document.getElementById('app').style.display='block';
   document.getElementById('userBadge').textContent=curUser.name+(curUser.filter?(' • '+(curUser.mode==='only'?curUser.filter:'Non-'+curUser.filter)):'');
@@ -705,6 +709,14 @@ document.getElementById('tabsBar').addEventListener('click',e=>{
   if(e.target.classList.contains('tab'))switchTab(e.target.dataset.tab);
 });
 function switchTab(t){
+  if((t==='team'||t==='activity')&&!(curUser&&['alex','taha'].includes(curUser.id))){
+    showToast('🔒','Access Restricted','Team/Activity available only for Alex and Taha');
+    t='overview';
+  }
+  if(t==='countries-raw'&&!(curUser&&curUser.id==='alex')){
+    showToast('🔒','Access Restricted','Countries RAW is available only for Alex');
+    t='overview';
+  }
   document.querySelectorAll('.tab').forEach(el=>el.classList.toggle('active',el.dataset.tab===t));
   document.querySelectorAll('.tab-pane').forEach(el=>el.classList.toggle('active',el.id==='pane-'+t));
   Object.values(charts).forEach(c=>{if(c&&c.destroy)c.destroy();});charts={};
@@ -713,7 +725,6 @@ function switchTab(t){
   if(t==='overview')renderOverview();
   else if(t==='pipeline')renderPipeline();
   else if(t==='opportunities')renderOpps();
-  else if(t==='performance')renderPerf();
   else if(t==='organisers')renderOrganisers();
   else if(t==='events')renderEvents();
   else if(t==='raw')renderRaw();
@@ -810,6 +821,34 @@ function showOrgEvents(orgName){
       return`<div class="org-note-row"><span>${actI[n.action]||'⚡'} <b>${n.user_name||'Team'}</b> — ${n.action}${n.note?' — <i>'+n.note+'</i>':''}</span><span style="color:var(--text3);font-size:11px;white-space:nowrap">${d}</span></div>`;
     }).join('')}</div>`;
   }
+  // Monthly trend for this organiser
+  const parseMonthKey=(raw)=>{
+    const s=String(raw||'').trim();
+    if(!s)return null;
+    if(s.includes('-')){
+      const p=s.split('-');
+      const y=parseInt(p[0],10),m=parseInt(p[1],10);
+      if(Number.isFinite(y)&&Number.isFinite(m)&&m>=1&&m<=12)return `${y}-${String(m).padStart(2,'0')}`;
+    }
+    return null;
+  };
+  const monthly={};
+  orgEvts.forEach(e=>{
+    const mk=parseMonthKey(e.date);
+    if(!mk)return;
+    if(!monthly[mk])monthly[mk]={tick:0,mkt:0};
+    monthly[mk].tick+=(parseFloat(e.rev)||0);
+    monthly[mk].mkt+=(parseFloat(e.mkt)||0);
+  });
+  const trendMonths=Object.keys(monthly).sort();
+  const trendLabels=trendMonths.map(mk=>{
+    const y=parseInt(mk.slice(0,4),10),m=parseInt(mk.slice(5,7),10);
+    return new Date(y,m-1,1).toLocaleString('en-GB',{month:'short',year:'numeric'});
+  });
+  const trendTick=trendMonths.map(mk=>monthly[mk].tick);
+  const trendMkt=trendMonths.map(mk=>monthly[mk].mkt);
+  const trendChartId='orgTrend_'+Math.random().toString(36).slice(2,9);
+  const trendHtml=trendMonths.length?`<div class="seg-card" style="margin-bottom:14px"><h4 style="margin-bottom:10px">Ticketing vs Marketing Revenue Trend</h4><div style="height:220px"><canvas id="${trendChartId}"></canvas></div></div>`:'';
   overlay.innerHTML=`<div class="org-modal">
     <div class="org-modal-head">
       <div><h2>${orgName}<span class="org-evt-count">${orgEvts.length} events</span></h2>
@@ -817,6 +856,7 @@ function showOrgEvents(orgName){
       <button class="org-modal-close" onclick="this.closest('.org-modal-overlay').remove()">✕</button>
     </div>
     <div class="org-modal-body">
+      ${trendHtml}
       <table class="org-evt-table">
         <thead><tr><th>Event ID</th><th>Event Name</th><th>Date</th><th>Type</th><th>Country</th><th>Ticketing</th><th>Marketing</th><th>Share</th><th>Status</th></tr></thead>
         <tbody>${evtRows}</tbody>
@@ -825,6 +865,16 @@ function showOrgEvents(orgName){
     </div>
   </div>`;
   document.body.appendChild(overlay);
+  if(trendMonths.length&&document.getElementById(trendChartId)){
+    charts[trendChartId]=new Chart(document.getElementById(trendChartId),{
+      type:'line',
+      data:{labels:trendLabels,datasets:[
+        {label:'Ticketing',data:trendTick,borderColor:'#79E2FF',backgroundColor:'rgba(121,226,255,0.10)',fill:true,tension:0.3,pointRadius:2},
+        {label:'Marketing',data:trendMkt,borderColor:'#C7F88A',backgroundColor:'rgba(199,248,138,0.10)',fill:true,tension:0.3,pointRadius:2}
+      ]},
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#8fa8b4'}},tooltip:{callbacks:{label:ctx=>`${ctx.dataset.label}: ${fmtCur(ctx.raw)}`}}},scales:{x:{ticks:{color:'#5d7a86'}},y:{ticks:{color:'#5d7a86',callback:v=>fmtCur(v)},grid:{color:'rgba(255,255,255,0.06)'}}}}
+    });
+  }
 }
 
 /* ===== OVERVIEW TAB ===== */
@@ -843,6 +893,65 @@ function renderOverview(){
   const countries={};ORGS.forEach(o=>{if(!countries[o.country])countries[o.country]={cnt:0,rev:0};countries[o.country].cnt++;countries[o.country].rev+=o.tt;});
   const topCountries=Object.entries(countries).sort((a,b)=>b[1].rev-a[1].rev).slice(0,5);
   const territoryHtml=curUser.filter?`<div class="territory-bar"><div class="tb-item"><span style="font-size:14px">📍</span><span class="tb-text"><b>${curUser.name}</b> — ${curUser.mode==='only'?curUser.filter:'GCC (Non-UAE)'}</span></div><div class="tb-item"><div class="tb-dot" style="background:var(--accent2)"></div><span class="tb-text">${ORGS.length} orgs</span></div><div class="tb-item"><div class="tb-dot" style="background:var(--green)"></div><span class="tb-text">${fmtCur(totalTick)} ticketing</span></div><div class="tb-item"><div class="tb-dot" style="background:var(--amber)"></div><span class="tb-text">${hotCount+warmCount} hot/warm leads</span></div></div>`:`<div class="territory-bar"><div class="tb-item"><span style="font-size:14px">🌍</span><span class="tb-text"><b>${curUser.name}</b> — All Regions</span></div>${topCountries.map(([c,d])=>`<div class="tb-item"><div class="tb-dot" style="background:var(--accent2)"></div><span class="tb-text">${c}: ${d.cnt} orgs (${fmtCur(d.rev)})</span></div>`).join('')}</div>`;
+
+  // This-month vs same-month-last-year by country (user scope)
+  const scopeCountries=[...new Set(ORGS.map(o=>o.country))].filter(Boolean).sort();
+  const monthKeyFromRawDate=(raw)=>{
+    if(raw==null)return null;
+    const s=String(raw).trim();
+    if(!s)return null;
+    if(s.includes('-')){
+      const p=s.split('-');
+      if(p.length>=2){
+        const y=parseInt(p[0],10),m=parseInt(p[1],10);
+        if(Number.isFinite(y)&&Number.isFinite(m)&&m>=1&&m<=12)return `${y}-${String(m).padStart(2,'0')}`;
+      }
+    }
+    if(/^\d+$/.test(s)){
+      let y,m;
+      if(s.length===6){y=parseInt(s.slice(0,4),10);m=parseInt(s.slice(4),10);}
+      else if(s.length===5){y=parseInt(s.slice(0,4),10);m=parseInt(s.slice(4),10);}
+      if(Number.isFinite(y)&&Number.isFinite(m)&&m>=1&&m<=12)return `${y}-${String(m).padStart(2,'0')}`;
+    }
+    return null;
+  };
+  const shiftMonthKey=(key,deltaMonths)=>{
+    if(!/^\d{4}-\d{2}$/.test(key||''))return null;
+    const y=parseInt(key.slice(0,4),10),m=parseInt(key.slice(5,7),10);
+    const d=new Date(y,m-1,1);
+    d.setMonth(d.getMonth()+deltaMonths);
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+  };
+  const monthlyByCountry={};
+  (RAW_EVENTS||[]).forEach(e=>{
+    if((e.type||'').toLowerCase()!=='event')return;
+    if(!scopeCountries.includes(e.country))return;
+    const mk=monthKeyFromRawDate(e.date);
+    if(!mk)return;
+    const k=`${e.country}||${mk}`;
+    if(!monthlyByCountry[k])monthlyByCountry[k]={rev:0,mkt:0};
+    monthlyByCountry[k].rev+=(parseFloat(e.rev)||0);
+    monthlyByCountry[k].mkt+=(parseFloat(e.mkt)||0);
+  });
+  const allMonthKeys=[...new Set((RAW_EVENTS||[]).filter(e=>(e.type||'').toLowerCase()==='event'&&scopeCountries.includes(e.country)).map(e=>monthKeyFromRawDate(e.date)).filter(Boolean))].sort();
+  const reportMonthKey=[...allMonthKeys].reverse().find(mk=>scopeCountries.some(c=>(monthlyByCountry[`${c}||${mk}`]?.mkt||0)>0))||allMonthKeys[allMonthKeys.length-1]||null;
+  const reportLyKey=shiftMonthKey(reportMonthKey,-12);
+  const monthLabel=(mk)=>{
+    if(!mk)return '—';
+    const y=parseInt(mk.slice(0,4),10),m=parseInt(mk.slice(5,7),10);
+    return new Date(y,m-1,1).toLocaleString('en-GB',{month:'short',year:'numeric'});
+  };
+  const cmRows=scopeCountries.map(c=>{
+    const cur=monthlyByCountry[`${c}||${reportMonthKey}`]||{rev:0,mkt:0};
+    const ly=monthlyByCountry[`${c}||${reportLyKey}`]||{rev:0,mkt:0};
+    const shareCur=cur.rev>0?(cur.mkt/cur.rev*100):0;
+    const shareLy=ly.rev>0?(ly.mkt/ly.rev*100):0;
+    return {country:c,mktCur:cur.mkt,mktLy:ly.mkt,shareCur,shareLy};
+  }).sort((a,b)=>b.mktCur-a.mktCur);
+  const countryMomentumHtml=`<div class="chart-grid" style="margin-bottom:14px">
+    <div class="chart-box"><h3>Marketing Revenue by Country (${monthLabel(reportMonthKey)} vs ${monthLabel(reportLyKey)})</h3><canvas id="chCountryMktYoY"></canvas></div>
+    <div class="chart-box"><h3>Marketing Share by Country (${monthLabel(reportMonthKey)} vs ${monthLabel(reportLyKey)})</h3><canvas id="chCountryShareYoY"></canvas></div>
+  </div>`;
 
   // Priority Actions queue — top 8 most urgent
   const actionQueue=[...ORGS].filter(o=>o.sr==='hot'||o.rs>60||o.gt==='decelerating').sort((a,b)=>{const aPri=(a.sr==='hot'?30:0)+(a.rs>60?a.rs*0.3:0)+(a.gt==='decelerating'?20:0)+a.ps*0.2;const bPri=(b.sr==='hot'?30:0)+(b.rs>60?b.rs*0.3:0)+(b.gt==='decelerating'?20:0)+b.ps*0.2;return bPri-aPri;}).slice(0,8);
@@ -876,6 +985,7 @@ function renderOverview(){
 
   p.innerHTML=`
   ${territoryHtml}
+  ${countryMomentumHtml}
   <div class="kpi-row">
     <div class="kpi"><div class="kpi-label">Total Ticketing Revenue</div><div class="kpi-val">${fmtCur(totalTick)}</div><div class="kpi-sub">${ORGS.length} organisers</div>${makeSparkline([ORGS.reduce((s,o)=>s+(o.t23||0),0),ORGS.reduce((s,o)=>s+(o.t24||0),0),ORGS.reduce((s,o)=>s+(o.t25||0),0),ORGS.reduce((s,o)=>s+(o.t26||0),0)])}</div>
     <div class="kpi"><div class="kpi-label">Total Mkt Revenue</div><div class="kpi-val">${fmtCur(totalMkt)}</div><div class="kpi-sub">${avgShare.toFixed(1)}% avg share</div>${makeSparkline([ORGS.reduce((s,o)=>s+(o.m23||0),0),ORGS.reduce((s,o)=>s+(o.m24||0),0),ORGS.reduce((s,o)=>s+(o.m25||0),0),ORGS.reduce((s,o)=>s+(o.m26||0),0)])}</div>
@@ -910,6 +1020,27 @@ function renderOverview(){
     <div class="seg-card"><h3>Fastest Growing</h3><div id="segGrowing"></div></div>
   </div>
   ${countryRadarHtml}`;
+
+  // Country YoY charts (scope-aware by user)
+  if(cmRows.length>0&&reportMonthKey&&reportLyKey){
+    const labels=cmRows.map(r=>r.country);
+    charts.countryMktYoY=new Chart(document.getElementById('chCountryMktYoY'),{
+      type:'bar',
+      data:{labels,datasets:[
+        {label:monthLabel(reportMonthKey),data:cmRows.map(r=>r.mktCur),backgroundColor:'rgba(121,226,255,0.7)',borderColor:'#79E2FF',borderWidth:1,borderRadius:6},
+        {label:monthLabel(reportLyKey),data:cmRows.map(r=>r.mktLy),backgroundColor:'rgba(199,248,138,0.55)',borderColor:'#C7F88A',borderWidth:1,borderRadius:6}
+      ]},
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#8fa8b4'}},tooltip:{callbacks:{label:ctx=>`${ctx.dataset.label}: ${fmtCur(ctx.raw)}`}}},scales:{x:{ticks:{color:'#5d7a86'}},y:{ticks:{color:'#5d7a86',callback:v=>fmtCur(v)},grid:{color:'rgba(255,255,255,0.06)'}}}}
+    });
+    charts.countryShareYoY=new Chart(document.getElementById('chCountryShareYoY'),{
+      type:'bar',
+      data:{labels,datasets:[
+        {label:monthLabel(reportMonthKey),data:cmRows.map(r=>parseFloat(r.shareCur.toFixed(3))),backgroundColor:'rgba(245,158,11,0.7)',borderColor:'#F59E0B',borderWidth:1,borderRadius:6},
+        {label:monthLabel(reportLyKey),data:cmRows.map(r=>parseFloat(r.shareLy.toFixed(3))),backgroundColor:'rgba(139,92,246,0.55)',borderColor:'#8B5CF6',borderWidth:1,borderRadius:6}
+      ]},
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#8fa8b4'}},tooltip:{callbacks:{label:ctx=>`${ctx.dataset.label}: ${ctx.raw.toFixed(3)}%`}}},scales:{x:{ticks:{color:'#5d7a86'}},y:{ticks:{color:'#5d7a86',callback:v=>v.toFixed(2)+'%'},grid:{color:'rgba(255,255,255,0.06)'}}}}
+    });
+  }
 
   // Revenue Trend
   const years=[2023,2024,2025,2026];
@@ -1678,6 +1809,10 @@ function renderOrganisers(){
   p.innerHTML=`
   <div style="display:flex;gap:8px;margin-bottom:12px;align-items:center">
     <h3 style="flex:none;font-size:16px">📊 Organisers (${ORGS.length})</h3>
+    <div class="view-chips" style="margin:0 4px 0 0">
+      <button class="view-chip vc-all ${orgListView==='all'?'active':''}" onclick="orgListView='all';orgListPage=0;renderOrgTable()">All</button>
+      <button class="view-chip vc-warm ${orgListView==='untapped'?'active':''}" onclick="orgListView='untapped';orgListPage=0;renderOrgTable()">Untapped (No Marketing Revenue)</button>
+    </div>
     <input placeholder="Search organisers..." style="padding:8px 12px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:13px;flex:1" value="${orgListSearch}" oninput="orgListSearch=this.value.toLowerCase();orgListPage=0;renderOrgTable()">
     <button class="btn-export" onclick="exportOrgCSV()">📥 Export CSV</button>
   </div>
@@ -1689,6 +1824,7 @@ function renderOrganisers(){
 function renderOrgTable(){
   const perPage=50;
   let list=ORGS;
+  if(orgListView==='untapped')list=list.filter(o=>(parseFloat(o.tm)||0)<=0);
   if(orgListSearch)list=list.filter(o=>o.organizer.toLowerCase().includes(orgListSearch)||o.country.toLowerCase().includes(orgListSearch)||(o.tier||'').toLowerCase().includes(orgListSearch));
   list=[...list].sort((a,b)=>{const v=orgListSort.asc?1:-1;const av=a[orgListSort.col],bv=b[orgListSort.col];if(typeof av==='string')return(av||'').localeCompare(bv||'')*v;return((av||0)-(bv||0))*v;});
   const start=orgListPage*perPage;
@@ -1710,10 +1846,10 @@ function renderOrgTable(){
   let html=`<table><thead><tr>${cols.map(c=>c.k==='_assign'?`<th>Assign</th>`:`<th onclick="orgListSort={col:'${c.k}',asc:orgListSort.col==='${c.k}'?!orgListSort.asc:false};renderOrgTable()">${c.l}${orgListSort.col===c.k?(orgListSort.asc?' ↑':' ↓'):''}</th>`).join('')}</tr></thead><tbody>`;
   page.forEach(o=>{
     const assignee=orgAssign[o.organizer];
-    html+=`<tr>${cols.map(c=>{
+    html+=`<tr style="cursor:pointer" onclick="showOrgEvents('${o.organizer.replace(/'/g,"\\'")}')">${cols.map(c=>{
       if(c.k==='_assign'){
         if(assignee)return`<td><span class="assign-badge">${assignee}</span></td>`;
-        return`<td><button class="assign-btn" onclick="showAssignMenu('org',\`${o.organizer.replace(/`/g,'')}\`,this)">Assign</button></td>`;
+        return`<td><button class="assign-btn" onclick="event.stopPropagation();showAssignMenu('org',\`${o.organizer.replace(/`/g,'')}\`,this)">Assign</button></td>`;
       }
       const v=o[c.k];
       if(c.k==='rp')return`<td style="color:var(--green)">${fmtCur(v)}</td>`;
@@ -1741,6 +1877,10 @@ function renderEvents(){
   p.innerHTML=`
   <div style="display:flex;gap:8px;margin-bottom:12px;align-items:center">
     <h3 style="flex:none;font-size:16px">🎫 Events (${EVENTS.length})</h3>
+    <div class="view-chips" style="margin:0 4px 0 0">
+      <button class="view-chip vc-all ${evtListView==='all'?'active':''}" onclick="evtListView='all';evtListPage=0;renderEvtTable()">All</button>
+      <button class="view-chip vc-warm ${evtListView==='untapped'?'active':''}" onclick="evtListView='untapped';evtListPage=0;renderEvtTable()">Untapped (No Marketing Revenue)</button>
+    </div>
     <input placeholder="Search events..." style="padding:8px 12px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:13px;flex:1" value="${evtListSearch}" oninput="evtListSearch=this.value.toLowerCase();evtListPage=0;renderEvtTable()">
     <button class="btn-export" onclick="exportEvtCSV()">📥 Export CSV</button>
   </div>
@@ -1752,6 +1892,7 @@ function renderEvents(){
 function renderEvtTable(){
   const perPage=50;
   let list=EVENTS;
+  if(evtListView==='untapped')list=list.filter(e=>(parseFloat(e.mkt)||0)<=0);
   if(evtListSearch)list=list.filter(e=>(e.name||'').toLowerCase().includes(evtListSearch)||(e.org||'').toLowerCase().includes(evtListSearch)||(e.country||'').toLowerCase().includes(evtListSearch));
   list=[...list].sort((a,b)=>{const v=evtListSort.asc?1:-1;const av=a[evtListSort.col],bv=b[evtListSort.col];if(typeof av==='string')return(av||'').localeCompare(bv||'')*v;return((av||0)-(bv||0))*v;});
   const start=evtListPage*perPage;
@@ -1767,10 +1908,10 @@ function renderEvtTable(){
   let html=`<table><thead><tr>${cols.map(c=>c.k==='_assign'?`<th>Assign</th>`:`<th onclick="evtListSort={col:'${c.k}',asc:evtListSort.col==='${c.k}'?!evtListSort.asc:false};renderEvtTable()">${c.l}${evtListSort.col===c.k?(evtListSort.asc?' ↑':' ↓'):''}</th>`).join('')}</tr></thead><tbody>`;
   page.forEach(e=>{
     const assignee=evtAssign[e.id];
-    html+=`<tr>${cols.map(c=>{
+    html+=`<tr style="cursor:pointer" onclick="showOrgEvents('${(e.org||'').replace(/'/g,"\\'")}')">${cols.map(c=>{
       if(c.k==='_assign'){
         if(assignee)return`<td><span class="assign-badge">${assignee}</span></td>`;
-        return`<td><button class="assign-btn" onclick="showAssignMenu('evt','${e.id}',this)">Assign</button></td>`;
+        return`<td><button class="assign-btn" onclick="event.stopPropagation();showAssignMenu('evt','${e.id}',this)">Assign</button></td>`;
       }
       const v=e[c.k];
       if(c.k==='rev'||c.k==='mkt')return`<td>${fmtCur(v)}</td>`;
