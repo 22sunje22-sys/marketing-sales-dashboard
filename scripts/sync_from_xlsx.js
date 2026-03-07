@@ -1,9 +1,13 @@
 const XLSX = require('xlsx');
 const { createClient } = require('@supabase/supabase-js');
 
-const FILE = '/Users/alexanderyutkin/Downloads/Paid Marketing Services Share  - organisers (UAE_KSA_Bahrain).xlsx';
-const SB_URL = 'https://kwftlkfvtglnugxsyjci.supabase.co';
-const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt3ZnRsa2Z2dGdsbnVneHN5amNpIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0NzY0MDE4NSwiZXhwIjoyMDYzMjE2MTg1fQ.YIAjhOjctWouBNL8OI_Q3efawdVf7ikl-LvnFQGYHT4';
+const FILE = process.env.XLSX_FILE || '/Users/alexanderyutkin/Downloads/Paid Marketing Services Share  - organisers (UAE_KSA_Bahrain).xlsx';
+const SB_URL = process.env.SUPABASE_URL || 'https://kwftlkfvtglnugxsyjci.supabase.co';
+const SB_KEY = process.env.SUPABASE_SERVICE_KEY;
+
+if (!SB_KEY) {
+  throw new Error('SUPABASE_SERVICE_KEY is required in environment');
+}
 
 const sb = createClient(SB_URL, SB_KEY);
 
@@ -117,7 +121,7 @@ function buildEventAggByOrganizer(eventRows) {
   return out;
 }
 
-function buildOrganiserRows(rows, oldByOrg, eventAggByOrg) {
+function buildOrganiserRows(rows, oldByOrg) {
   const out = [];
   for (let r = 4; r < rows.length; r++) {
     const row = rows[r] || [];
@@ -133,15 +137,15 @@ function buildOrganiserRows(rows, oldByOrg, eventAggByOrg) {
     const country = text(row[7]) || null;
     const event_ex = text(row[6]) || null;
 
-    const evAgg = eventAggByOrg[lcKey(organizer)] || { t23: 0, m23: 0, t24: 0, m24: 0, t25: 0, m25: 0, t26: 0, m26: 0 };
-    const t23 = num(evAgg.t23);
-    const m23 = num(evAgg.m23);
-    const t24 = num(evAgg.t24);
-    const m24 = num(evAgg.m24);
-    const t25 = num(evAgg.t25);
-    const m25 = num(evAgg.m25);
-    const t26 = num(evAgg.t26);
-    const m26 = num(evAgg.m26);
+    // Organiser table must match "Pre dashboard (organisers)" exactly.
+    const t23 = num(row[9]);
+    const m23 = num(row[10]);
+    const t24 = num(row[11]);
+    const m24 = num(row[12]);
+    const t25 = num(row[13]);
+    const m25 = num(row[14]);
+    const t26 = num(row[15]);
+    const m26 = num(row[16]);
 
     const s23 = t23 > 0 ? (m23 / t23) * 100 : 0;
     const s24 = t24 > 0 ? (m24 / t24) * 100 : 0;
@@ -269,13 +273,12 @@ async function main() {
 
   const eventRows = buildEventRows(evRowsRaw);
   const expectedCountry = parseCountriesRawTargets(crRowsRaw);
-  const eventAggByOrg = buildEventAggByOrganizer(eventRows);
   console.log('Prepared dashboard_events rows:', eventRows.length);
 
   const oldOrgs = await fetchAll('dashboard_organisers', 'organizer,tags,sg,sgp,rp,gt,rs,ps,sr,nba,lc');
   const oldByOrg = new Map(oldOrgs.map((o) => [lcKey(o.organizer), o]));
 
-  const organiserRows = buildOrganiserRows(orgRowsRaw, oldByOrg, eventAggByOrg);
+  const organiserRows = buildOrganiserRows(orgRowsRaw, oldByOrg);
   console.log('Prepared dashboard_organisers rows:', organiserRows.length);
 
   console.log('Deleting old dashboard_events...');
