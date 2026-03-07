@@ -612,12 +612,22 @@ function monthLabel(key){
   const y=parseInt(key.slice(0,4),10),m=parseInt(key.slice(5,7),10);
   return new Date(y,m-1,1).toLocaleString('en-GB',{month:'short',year:'numeric'});
 }
+function currentMonthKey(){
+  const d=new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+}
+function isValidRevenuePoint(rev,mkt){
+  return (parseFloat(rev)||0)>0 || (parseFloat(mkt)||0)>0;
+}
 function buildMonthlyCache(){
   ORG_MONTHLY={};
+  const nowKey=currentMonthKey();
   EVENTS.forEach(e=>{
     if((e.type||'').toLowerCase()!=='event')return;
     const mk=monthKeyFromRawDate(e.date);
     if(!mk)return;
+    if(mk>nowKey)return;
+    if(!isValidRevenuePoint(e.rev,e.mkt))return;
     const org=e.org||'—';
     if(!ORG_MONTHLY[org])ORG_MONTHLY[org]={};
     if(!ORG_MONTHLY[org][mk])ORG_MONTHLY[org][mk]={tick:0,mkt:0};
@@ -1018,17 +1028,20 @@ function renderOverview(){
     return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
   };
   const monthlyByCountry={};
+  const nowKey=currentMonthKey();
   (RAW_EVENTS||[]).forEach(e=>{
     if((e.type||'').toLowerCase()!=='event')return;
     if(!scopeCountries.includes(e.country))return;
     const mk=monthKeyFromRawDate(e.date);
     if(!mk)return;
+    if(mk>nowKey)return;
+    if(!isValidRevenuePoint(e.rev,e.mkt))return;
     const k=`${e.country}||${mk}`;
     if(!monthlyByCountry[k])monthlyByCountry[k]={rev:0,mkt:0};
     monthlyByCountry[k].rev+=(parseFloat(e.rev)||0);
     monthlyByCountry[k].mkt+=(parseFloat(e.mkt)||0);
   });
-  const allMonthKeys=[...new Set((RAW_EVENTS||[]).filter(e=>(e.type||'').toLowerCase()==='event'&&scopeCountries.includes(e.country)).map(e=>monthKeyFromRawDate(e.date)).filter(Boolean))].sort();
+  const allMonthKeys=[...new Set((RAW_EVENTS||[]).filter(e=>(e.type||'').toLowerCase()==='event'&&scopeCountries.includes(e.country)).map(e=>monthKeyFromRawDate(e.date)).filter(mk=>mk&&mk<=nowKey))].sort();
   const reportMonthKey=[...allMonthKeys].reverse().find(mk=>scopeCountries.some(c=>(monthlyByCountry[`${c}||${mk}`]?.mkt||0)>0))||allMonthKeys[allMonthKeys.length-1]||null;
   const reportLyKey=shiftMonthKey(reportMonthKey,-12);
   const monthLabel=(mk)=>{
@@ -2362,12 +2375,15 @@ function renderCountriesRaw(){
   }
   /* Use RAW_EVENTS (already in memory from Supabase load) */
   const eventsToUse=typeof RAW_EVENTS!=='undefined'?RAW_EVENTS:[];
+  const nowKey=currentMonthKey();
   const maxMonthKey=eventsToUse.reduce((mx,e)=>{
     const cm=COUNTRY_MAP[e.country];
     if(!cm)return mx;
     if((e.type||'').toLowerCase()!=='event')return mx;
     const mk=monthKeyFromDateRaw(e.date);
     if(!mk)return mx;
+    if(mk>nowKey)return mx;
+    if(!isValidRevenuePoint(e.rev,e.mkt))return mx;
     return !mx||mk>mx?mk:mx;
   },null);
 
@@ -2387,6 +2403,8 @@ function renderCountriesRaw(){
     if((e.type||'').toLowerCase()!=='event')return; /* only events, not attractions */
     const mKey=monthKeyFromDateRaw(e.date);
     if(!mKey)return;
+    if(mKey>nowKey)return;
+    if(!isValidRevenuePoint(e.rev,e.mkt))return;
     const idx=MONTH_KEYS.indexOf(mKey);
     if(idx===-1)return;
     const bucket=agg[cm.key];
