@@ -37,6 +37,15 @@ body { font-family:'Inter',sans-serif; background:var(--bg); color:var(--text); 
 .login-box button { width:100%; padding:12px; border-radius:8px; border:none; background:var(--pl-suede); color:#fff; font-size:15px; font-weight:600; cursor:pointer; transition:background 0.2s; }
 .login-box button:hover { background:var(--pl-monday); color:var(--pl-storm); }
 .login-err { color:var(--red); font-size:13px; margin-top:8px; display:none; }
+.btn-slack { background:linear-gradient(135deg,#5b2e86,#7b2b89) !important; color:#fff !important; font-weight:700; }
+.btn-slack:hover { filter:brightness(1.08); color:#fff !important; }
+.login-link { display:block; margin-top:10px; color:var(--pl-monday); font-size:13px; cursor:pointer; text-decoration:none; }
+.login-link:hover { text-decoration:underline; }
+.login-muted { color:var(--text2); font-size:12px; margin-top:10px; line-height:1.45; }
+.auth-guide { margin-top:14px; border:1px solid var(--border); border-radius:10px; background:var(--surface2); padding:10px; text-align:left; }
+.auth-guide h4 { font-size:12px; color:var(--text2); margin-bottom:8px; font-weight:600; }
+.auth-guide img { width:100%; border-radius:8px; border:1px solid var(--border); display:block; }
+.hidden { display:none !important; }
 
 /* APP */
 .app { display:none; }
@@ -479,8 +488,22 @@ tr:hover td { background:var(--surface2); }
 <option value="kamila">Kamilla (UAE only)</option>
 <option value="mohammed">Mohammed (KSA/Qatar/Oman/Bahrain)</option>
 </select>
-<input type="password" id="pwdInput" placeholder="Password" onkeydown="if(event.key==='Enter')doLogin()">
-<button onclick="doLogin()">Sign In</button>
+<div id="slackAuthBox">
+  <button class="btn-slack" id="btnSlackStart" onclick="startSlackLogin()">💬 Login via Slack (Gatey)</button>
+  <div class="login-muted" id="slackHelpText">Default flow: open DM with @gatey, send <b>otp</b>, then paste the code here.</div>
+  <input class="hidden" id="otpInput" placeholder="Enter OTP code" onkeydown="if(event.key==='Enter')verifySlackOtp()">
+  <button class="hidden" id="btnSlackVerify" onclick="verifySlackOtp()">Verify OTP & Sign In</button>
+  <a class="login-link" onclick="togglePasswordLogin(true)">Use password instead</a>
+  <div class="auth-guide">
+    <h4>Auth guide (UX target)</h4>
+    <img src="https://cleanshot.com/share/c9GVb35P" alt="Slack auth UX reference">
+  </div>
+</div>
+<div id="passwordAuthBox" class="hidden">
+  <input type="password" id="pwdInput" placeholder="Password" onkeydown="if(event.key==='Enter')doLogin()">
+  <button id="btnPwdSignIn" onclick="doLogin()">Sign In</button>
+  <a class="login-link" onclick="togglePasswordLogin(false)">Back to Slack login</a>
+</div>
 <div class="login-err" id="loginErr">Invalid password</div>
 </div>
 </div>
@@ -559,6 +582,11 @@ async function loadData(){
   }
 }
 const PWD='salesdash';
+const SB_AUTH_URL='https://kwftlkfvtglnugxsyjci.supabase.co';
+const SB_AUTH_ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt3ZnRsa2Z2dGdsbnVneHN5amNpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDc2NDAxODUsImV4cCI6MjA2MzIxNjE4NX0.9Cn1xahmF8q6pbbWQHNyQSc9fZkVvJaqTzMRZCtmb9E';
+const SLACK_OTP_FN='b2b-slack-otp-v2';
+const sbAuthClient=(window.supabase&&window.supabase.createClient)?window.supabase.createClient(SB_AUTH_URL,SB_AUTH_ANON):null;
+let slackOtpEmail='';
 const USERS={alex:{name:'Alex',filter:null},taha:{name:'Taha',filter:null},kamila:{name:'Kamilla',filter:'United Arab Emirates',mode:'only'},mohammed:{name:'Mohammed',countries:['Saudi Arabia','Qatar','Oman','Bahrain'],mode:'list'}};
 const GCC_COUNTRIES=['United Arab Emirates','Saudi Arabia','Bahrain','Oman','Qatar','Kuwait'];
 const COUNTRY_MARKETING_OVERRIDE={
@@ -902,21 +930,102 @@ function _animateBar(){
   }
 }
 /* ===== END PRELOADER ===== */
+function setLoginError(msg){
+  const errEl=document.getElementById('loginErr');
+  if(!errEl)return;
+  errEl.textContent=msg||'';
+  errEl.style.display=msg?'block':'none';
+}
+function togglePasswordLogin(showPwd){
+  const pwd=document.getElementById('passwordAuthBox');
+  const slack=document.getElementById('slackAuthBox');
+  if(!pwd||!slack)return;
+  pwd.classList.toggle('hidden',!showPwd);
+  slack.classList.toggle('hidden',!!showPwd);
+  setLoginError('');
+}
+async function startSlackLogin(){
+  const u=document.getElementById('userSel').value;
+  if(!u){setLoginError('Please select a user');return;}
+  if(!sbAuthClient){setLoginError('Supabase auth client is not available');return;}
+  setLoginError('');
+  const otpInput=document.getElementById('otpInput');
+  const verifyBtn=document.getElementById('btnSlackVerify');
+  const startBtn=document.getElementById('btnSlackStart');
+  const help=document.getElementById('slackHelpText');
+  if(otpInput)otpInput.classList.remove('hidden');
+  if(verifyBtn)verifyBtn.classList.remove('hidden');
+  if(help)help.innerHTML='Request sent. Open Slack DM with @gatey, send <b>otp</b>, then paste the code below.';
+  if(startBtn){startBtn.disabled=true;startBtn.textContent='Requesting OTP...';}
+  const payload={ user_id:u, user_name:USERS[u]?.name||u };
+  const ctrl=new AbortController();
+  const t=setTimeout(()=>ctrl.abort(),9000);
+  try{
+    const res=await fetch(`${SB_AUTH_URL}/functions/v1/${SLACK_OTP_FN}`,{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(payload),
+      signal:ctrl.signal
+    });
+    let data=null;try{data=await res.json();}catch(_){}
+    if(data?.email)slackOtpEmail=data.email;
+    if(!res.ok){
+      setLoginError(data?.error||`Slack OTP request failed (${res.status})`);
+      return;
+    }
+  }catch(e){
+    // Per UX: move user to OTP step even on timeout/network issues.
+    console.warn('Slack OTP request warning',e);
+  }finally{
+    clearTimeout(t);
+    if(startBtn){startBtn.disabled=false;startBtn.textContent='💬 Login via Slack (Gatey)';}
+  }
+}
+async function verifySlackOtp(){
+  const u=document.getElementById('userSel').value;
+  const otp=document.getElementById('otpInput')?.value?.trim();
+  if(!u){setLoginError('Please select a user');return;}
+  if(!otp){setLoginError('Enter OTP code from Slack');return;}
+  if(!sbAuthClient){setLoginError('Supabase auth client is not available');return;}
+  if(!slackOtpEmail){
+    setLoginError('OTP email context is missing. Ensure SLACK_DEFAULT_EMAIL is set in function env or function returns email.');
+    return;
+  }
+  const verifyBtn=document.getElementById('btnSlackVerify');
+  if(verifyBtn){verifyBtn.disabled=true;verifyBtn.textContent='Verifying...';}
+  setLoginError('');
+  try{
+    const { error } = await sbAuthClient.auth.verifyOtp({
+      email: slackOtpEmail,
+      token: otp,
+      type: 'email'
+    });
+    if(error){setLoginError(error.message||'OTP verification failed');return;}
+    await doPostAuthLogin(u);
+  }catch(e){
+    setLoginError('OTP verification failed');
+  }finally{
+    if(verifyBtn){verifyBtn.disabled=false;verifyBtn.textContent='Verify OTP & Sign In';}
+  }
+}
+async function doPostAuthLogin(u){
+  if(!dataLoaded){showPreloader();await loadData();}
+  await Promise.all([loadActions(),loadVisits()]);
+  hidePreloader();
+  if(!dataLoaded){setLoginError('Failed to load data');return;}
+  completeLogin(u,true);
+}
 
 async function doLogin(){
   const u=document.getElementById('userSel').value;
   const p=document.getElementById('pwdInput').value;
-  const errEl=document.getElementById('loginErr');
-  if(!u){errEl.textContent='Please select a user';errEl.style.display='block';return;}
-  if(p!==PWD){errEl.textContent='Invalid password';errEl.style.display='block';return;}
-  const btn=document.querySelector('.login-box button');
+  if(!u){setLoginError('Please select a user');return;}
+  if(p!==PWD){setLoginError('Invalid password');return;}
+  setLoginError('');
+  const btn=document.getElementById('btnPwdSignIn');
   btn.textContent='Loading...';btn.disabled=true;
-  if(!dataLoaded){showPreloader();await loadData();}
-  await Promise.all([loadActions(),loadVisits()]);
-  hidePreloader();
+  await doPostAuthLogin(u);
   btn.textContent='Sign In';btn.disabled=false;
-  if(!dataLoaded){document.getElementById('loginErr').textContent='Failed to load data';document.getElementById('loginErr').style.display='block';return;}
-  completeLogin(u,true);
 }
 
 function completeLogin(u,track=true){
@@ -954,7 +1063,14 @@ function doLogout(){
   document.getElementById('loginWrap').style.display='flex';
   document.getElementById('pwdInput').value='';
   document.getElementById('userSel').value='';
-  document.getElementById('loginErr').style.display='none';
+  const otpInput=document.getElementById('otpInput');
+  if(otpInput){otpInput.value='';otpInput.classList.add('hidden');}
+  const vBtn=document.getElementById('btnSlackVerify');
+  if(vBtn){vBtn.classList.add('hidden');vBtn.disabled=false;vBtn.textContent='Verify OTP & Sign In';}
+  const help=document.getElementById('slackHelpText');
+  if(help)help.innerHTML='Default flow: open DM with @gatey, send <b>otp</b>, then paste the code here.';
+  slackOtpEmail='';
+  togglePasswordLogin(false);
   Object.values(charts).forEach(c=>{if(c&&c.destroy)c.destroy();});charts={};
   // Reset filter state on logout
   oppView='all';oppPage=0;oppFilters={country:'',tier:'',stage:'',type:'',search:'',tag:''};
