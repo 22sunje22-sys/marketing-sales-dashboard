@@ -573,6 +573,7 @@ const COUNTRY_TICKETING_OVERRIDE={"United Arab Emirates":{"2023-01":60431200.88,
 let curUser=null, ORGS=[], EVENTS=[], charts={};
 let orgAssign={}, evtAssign={};
 let ORG_ACTIONS=[], ORG_ACTIONS_SET=new Set();
+let VISITS=[];
 let ORG_MONTHLY={};
 let REPORT_MONTH_KEY='';
 let OVERVIEW_MONTH_KEY='';
@@ -583,8 +584,21 @@ let COUNTRY_SOURCE_QA=null;
 async function loadActions(){
   try{
     const res=await fetch(window.location.origin+'/api/actions');
-    if(res.ok){ORG_ACTIONS=await res.json();ORG_ACTIONS_SET=new Set(ORG_ACTIONS.map(a=>a.org));}
+    if(res.ok){
+      const raw=await res.json();
+      ORG_ACTIONS=(raw||[]).map(a=>({...a,user_name:canonicalUserName(a?.user_name)}));
+      ORG_ACTIONS_SET=new Set(ORG_ACTIONS.map(a=>a.org));
+    }
   }catch(e){console.warn('Actions load failed',e);}
+}
+async function loadVisits(){
+  try{
+    const res=await fetch(window.location.origin+'/api/visits');
+    if(res.ok){
+      const raw=await res.json();
+      VISITS=(raw||[]).map(v=>({...v,user_name:canonicalUserName(v?.user_name)}));
+    }
+  }catch(e){console.warn('Visits load failed',e);}
 }
 async function logOrgAction(org,action,note){
   if(!curUser)return;
@@ -898,7 +912,7 @@ async function doLogin(){
   const btn=document.querySelector('.login-box button');
   btn.textContent='Loading...';btn.disabled=true;
   if(!dataLoaded){showPreloader();await loadData();}
-  await loadActions();
+  await Promise.all([loadActions(),loadVisits()]);
   hidePreloader();
   btn.textContent='Sign In';btn.disabled=false;
   if(!dataLoaded){document.getElementById('loginErr').textContent='Failed to load data';document.getElementById('loginErr').style.display='block';return;}
@@ -969,7 +983,7 @@ async function tryResumeSession(){
   if(!uid||curUser)return;
   const errEl=document.getElementById('loginErr');
   if(errEl)errEl.style.display='none';
-  if(!dataLoaded){showPreloader();await loadData();await loadActions();hidePreloader();}
+  if(!dataLoaded){showPreloader();await loadData();await Promise.all([loadActions(),loadVisits()]);hidePreloader();}
   if(!dataLoaded)return;
   const sel=document.getElementById('userSel');
   if(sel)sel.value=uid;
@@ -1037,6 +1051,15 @@ function normStr(s){
     .replace(/[^\p{L}\p{N}\s]/gu,' ')
     .replace(/\s+/g,' ')
     .trim();
+}
+function canonicalUserName(v){
+  const s=(v||'').toString().trim().toLowerCase();
+  if(!s)return '';
+  if(s.includes('alex'))return 'Alex';
+  if(s.includes('taha'))return 'Taha';
+  if(s.includes('kamila')||s.includes('kamilla'))return 'Kamilla';
+  if(s.includes('mohammed')||s.includes('mohamed'))return 'Mohammed';
+  return (v||'').toString().trim();
 }
 function drillDown(view,searchTerm){
   oppView=view||'all';
@@ -1940,25 +1963,26 @@ let userAch=new Set();
 let allAch=[];
 
 async function logVisit(){
-  if(!sb||!curUser)return;
+  if(!curUser)return;
   try{
-    await sb.from('dashboard_visits').insert({
-      user_id:curUser.id, user_name:curUser.name,
-      user_agent:navigator.userAgent,
-      screen_width:window.innerWidth, screen_height:window.innerHeight
+    await fetch(window.location.origin+'/api/visits',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        user_id:curUser.id,
+        user_name:curUser.name,
+        user_agent:navigator.userAgent,
+        screen_width:window.innerWidth,
+        screen_height:window.innerHeight
+      })
     });
+    loadVisits();
   }catch(e){console.warn('logVisit err',e);}
 }
 
 async function logAction(type,detail,tab){
-  if(!sb||!curUser)return;
+  if(!curUser)return;
   sess.actions.push({type,detail,tab,time:new Date()});
-  try{
-    await sb.from('dashboard_actions').insert({
-      user_id:curUser.id, user_name:curUser.name,
-      action_type:type, action_detail:detail||'', tab:tab||''
-    });
-  }catch(e){console.warn('logAction err',e);}
   checkAchievements();
 }
 
@@ -2839,15 +2863,20 @@ async function renderTeam(){
   if(!p)return;
   let html='<h3 style="margin-bottom:16px">👥 Team Activity Overview</h3>';
   const allActions=ORG_ACTIONS||[];
+  const allVisits=VISITS||[];
   const teamNames=['Alex','Taha','Kamilla','Mohammed'];
   html+='<div class="team-grid">';
   teamNames.forEach(name=>{
     const actions=allActions.filter(a=>a.user_name===name);
+    const visits=allVisits.filter(v=>v.user_name===name);
+    const lastVisit=visits[0]||null;
     const lastAction=actions[0]||null;
     const totalActions=actions.length;
     const uniqueOrgs=new Set(actions.map(a=>a.org)).size;
     html+=`<div class="team-card">
-      <h4><span class="team-online ${lastAction?'active':'inactive'}"></span>${name}</h4>
+      <h4><span class="team-online ${lastVisit?'active':'inactive'}"></span>${name}</h4>
+      <div class="team-stat"><span class="team-stat-label">Last login</span><span class="team-stat-val">${lastVisit?getTimeAgo(lastVisit.created_at):'None'}</span></div>
+      <div class="team-stat"><span class="team-stat-label">Total logins</span><span class="team-stat-val">${visits.length}</span></div>
       <div class="team-stat"><span class="team-stat-label">Last action</span><span class="team-stat-val">${lastAction?getTimeAgo(lastAction.created_at):'None'}</span></div>
       <div class="team-stat"><span class="team-stat-label">Action type</span><span class="team-stat-val">${lastAction?lastAction.action:'-'}</span></div>
       <div class="team-stat"><span class="team-stat-label">Total actions</span><span class="team-stat-val">${totalActions}</span></div>
