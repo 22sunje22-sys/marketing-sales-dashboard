@@ -716,11 +716,15 @@ function buildMonthlyCache(){
     ORG_MONTHLY[org][mk].tick+=(parseFloat(e.rev)||0);
     ORG_MONTHLY[org][mk].mkt+=(parseFloat(e.mkt)||0);
   });
-  const prevKey=shiftMonthKey(maxDataMonthKey(EVENTS,true)||currentMonthKey(),-1)||currentMonthKey();
-  const hasPrev=Object.values(ORG_MONTHLY).some(m=>((m[prevKey]?.tick||0)>0)||((m[prevKey]?.mkt||0)>0));
-  if(hasPrev){REPORT_MONTH_KEY=prevKey;return;}
+  // Default should be previous calendar month (not "latest data month - 1")
+  // to keep all tabs aligned to the same reporting period.
+  const targetLastMonth=shiftMonthKey(currentMonthKey(),-1)||currentMonthKey();
+  const hasTarget=Object.values(ORG_MONTHLY).some(m=>((m[targetLastMonth]?.tick||0)>0)||((m[targetLastMonth]?.mkt||0)>0));
+  if(hasTarget){REPORT_MONTH_KEY=targetLastMonth;return;}
+  const nowKey=currentMonthKey();
   const keys=[...new Set(Object.values(ORG_MONTHLY).flatMap(m=>Object.keys(m)))].sort();
-  REPORT_MONTH_KEY=keys[keys.length-1]||prevKey;
+  const nonFuture=keys.filter(k=>k<=nowKey);
+  REPORT_MONTH_KEY=nonFuture[nonFuture.length-1]||keys[keys.length-1]||targetLastMonth;
 }
 function orgMonthMetrics(org){
   const cur=ORG_MONTHLY?.[org]?.[REPORT_MONTH_KEY]||{tick:0,mkt:0};
