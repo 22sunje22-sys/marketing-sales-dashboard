@@ -43,6 +43,8 @@ body { font-family:'Inter',sans-serif; background:var(--bg); color:var(--text); 
 .topbar { background:var(--surface); border-bottom:1px solid var(--border); padding:12px 24px; display:flex; align-items:center; justify-content:space-between; position:sticky; top:0; z-index:100; }
 .topbar h2 { font-size:16px; font-weight:600; }
 .topbar-right { display:flex; align-items:center; gap:12px; }
+.top-toggle { display:flex; align-items:center; gap:6px; font-size:12px; color:var(--text2); background:var(--surface2); border:1px solid var(--border); border-radius:999px; padding:6px 10px; }
+.top-toggle input { accent-color:#79E2FF; }
 .user-badge { background:var(--surface2); padding:6px 14px; border-radius:20px; font-size:13px; color:var(--text2); }
 .btn-logout { background:none; border:1px solid var(--border); color:var(--text2); padding:6px 14px; border-radius:20px; font-size:13px; cursor:pointer; }
 
@@ -65,6 +67,9 @@ body { font-family:'Inter',sans-serif; background:var(--bg); color:var(--text); 
 .kpi-label { font-size:11px; color:var(--text3); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px; }
 .kpi-val { font-size:24px; font-weight:700; }
 .kpi-sub { font-size:12px; color:var(--text2); margin-top:2px; }
+.delta-up { color:var(--green) !important; font-weight:700; }
+.delta-down { color:var(--red) !important; font-weight:700; }
+.delta-flat { color:var(--text3) !important; font-weight:700; }
 
 /* FILTERS */
 .filter-bar { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:16px; align-items:center; }
@@ -485,6 +490,7 @@ tr:hover td { background:var(--surface2); }
 <div class="topbar">
 <h2><span style="color:var(--pl-monday);font-weight:800;">Platinumlist</span> Marketing Intelligence</h2>
 <div class="topbar-right">
+<label class="top-toggle"><input type="checkbox" id="attrToggle" checked onchange="toggleAttractions(this.checked)">Hide Attractions</label>
 <span class="user-badge" id="userBadge"></span>
 <button class="ach-btn" onclick="toggleAch()">🏆 <span id="achCountBadge" class="ach-count">0</span></button>
 <button class="btn-logout" onclick="doLogout()">Logout</button>
@@ -530,6 +536,7 @@ tr:hover td { background:var(--surface2); }
 
 <script>
 let RAW_ORGS=[], RAW_EVENTS=[];
+let SCOPED_RAW_EVENTS=[];
 let dataLoaded=false;
 async function loadData(){
   const base=window.location.origin;
@@ -570,6 +577,7 @@ let ORG_MONTHLY={};
 let REPORT_MONTH_KEY='';
 let OVERVIEW_MONTH_KEY='';
 let OVERVIEW_COMPARE_KEY='';
+let hideAttractions=true;
 let OVERVIEW_COUNTRY_FILTER='';
 let COUNTRY_SOURCE_QA=null;
 async function loadActions(){
@@ -918,6 +926,8 @@ function completeLogin(u,track=true){
   if(activityTab)activityTab.style.display=canTeam?'':'none';
   document.getElementById('loginWrap').style.display='none';
   document.getElementById('app').style.display='block';
+  const attrToggle=document.getElementById('attrToggle');
+  if(attrToggle)attrToggle.checked=hideAttractions;
   document.getElementById('userBadge').textContent=curUser.name+(curUser.filter?(' • '+(curUser.mode==='only'?curUser.filter:'Non-'+curUser.filter)):(curUser.mode==='list'?' • '+curUser.countries.join(', '):''));
   if(track){logVisit();logAction('login','logged in','');}
   else{logAction('resume_session','cookie_resume','');}
@@ -940,6 +950,20 @@ function doLogout(){
   clearAuthCookie();
   curUser=null;
 }
+function isAttractionRow(x){
+  if(!x)return false;
+  if(typeof x.is_attraction==='boolean')return x.is_attraction;
+  const v=String(x.is_attraction??x.isAttraction??'').toLowerCase();
+  if(v==='true'||v==='1'||v==='yes')return true;
+  return String(x.type||'').toLowerCase()==='attraction';
+}
+function toggleAttractions(checked){
+  hideAttractions=!!checked;
+  if(!curUser)return;
+  initData();
+  const active=document.querySelector('.tab.active')?.dataset?.tab||'overview';
+  switchTab(active);
+}
 async function tryResumeSession(){
   const uid=getAuthCookie();
   if(!uid||curUser)return;
@@ -957,16 +981,18 @@ function initData(){
   const testRe=/test/i;
   ORGS=RAW_ORGS.filter(o=>{
     if(testRe.test(o.organizer))return false;
+    if(hideAttractions&&isAttractionRow(o))return false;
     if(curUser.mode==='list')return (curUser.countries||[]).includes(o.country);
     if(!curUser.filter)return true;
     return curUser.mode==='only'?o.country===curUser.filter:o.country!==curUser.filter;
   });
-  EVENTS=RAW_EVENTS.filter(e=>{
+  SCOPED_RAW_EVENTS=RAW_EVENTS.filter(e=>{
     if(testRe.test(e.org)||testRe.test(e.name))return false;
     if(curUser.mode==='list')return (curUser.countries||[]).includes(e.country);
     if(!curUser.filter)return true;
     return curUser.mode==='only'?e.country===curUser.filter:e.country!==curUser.filter;
   });
+  EVENTS=SCOPED_RAW_EVENTS.filter(e=>!(hideAttractions&&isAttractionRow(e)));
   COUNTRY_SOURCE_QA=null;
   buildMonthlyCache();
 }
@@ -1238,7 +1264,7 @@ function renderOverview(){
   const shareLy=ticketLy>0?(mktLy/ticketLy*100):0;
   const yoyPct=(cur,ly)=>ly>0?((cur-ly)/ly*100):null;
   const yoyDiff=(cur,ly)=>cur-ly;
-  const yoyTone=v=>v==null?'var(--text3)':(v>0?'var(--green)':(v<0?'var(--red)':'var(--text3)'));
+  const yoyClass=v=>v==null?'delta-flat':(v>0?'delta-up':(v<0?'delta-down':'delta-flat'));
 
   // Priority Actions queue — top 8 most urgent
   const actionQueue=[...ORGS].filter(o=>o.sr==='hot'||o.rs>60||o.gt==='decelerating').sort((a,b)=>{const aPri=(a.sr==='hot'?30:0)+(a.rs>60?a.rs*0.3:0)+(a.gt==='decelerating'?20:0)+a.ps*0.2;const bPri=(b.sr==='hot'?30:0)+(b.rs>60?b.rs*0.3:0)+(b.gt==='decelerating'?20:0)+b.ps*0.2;return bPri-aPri;}).slice(0,8);
@@ -1274,14 +1300,14 @@ function renderOverview(){
   ${territoryHtml}
   ${countryMomentumHtml}
   <div class="kpi-row">
-    <div class="kpi"><div class="kpi-label">Ticketing Revenue (${monthLabel(reportMonthKey)})</div><div class="kpi-val">${fmtCurOv(ticketCur)}</div><div class="kpi-sub">${isYoYCompare?'YoY':'Vs '+monthLabel(reportCmpKey)} <span style="color:${yoyTone(yoyPct(ticketCur,ticketLy))}">${yoyPct(ticketCur,ticketLy)!=null?fmtPct(yoyPct(ticketCur,ticketLy)):'-'}</span></div></div>
-    <div class="kpi"><div class="kpi-label">Marketing Revenue (${monthLabel(reportMonthKey)})</div><div class="kpi-val">${fmtCurOv(mktCur)}</div><div class="kpi-sub">${isYoYCompare?'YoY':'Vs '+monthLabel(reportCmpKey)} <span style="color:${yoyTone(yoyPct(mktCur,mktLy))}">${yoyPct(mktCur,mktLy)!=null?fmtPct(yoyPct(mktCur,mktLy)):'-'}</span></div></div>
-    <div class="kpi"><div class="kpi-label">Campaigns (${monthLabel(reportMonthKey)})</div><div class="kpi-val">${campaignsCur}</div><div class="kpi-sub">${isYoYCompare?'YoY':'Vs '+monthLabel(reportCmpKey)} <span style="color:${yoyTone(yoyDiff(campaignsCur,campaignsLy))}">${yoyDiff(campaignsCur,campaignsLy)>=0?'+':''}${yoyDiff(campaignsCur,campaignsLy)}</span></div></div>
-    <div class="kpi"><div class="kpi-label">Organisers With Campaigns</div><div class="kpi-val">${orgsWithCampaignsCur}</div><div class="kpi-sub">${isYoYCompare?'YoY':'Vs '+monthLabel(reportCmpKey)} <span style="color:${yoyTone(yoyDiff(orgsWithCampaignsCur,orgsWithCampaignsLy))}">${yoyDiff(orgsWithCampaignsCur,orgsWithCampaignsLy)>=0?'+':''}${yoyDiff(orgsWithCampaignsCur,orgsWithCampaignsLy)}</span></div></div>
-    <div class="kpi"><div class="kpi-label">Marketing Share (${monthLabel(reportMonthKey)})</div><div class="kpi-val">${shareCur.toFixed(2)}%</div><div class="kpi-sub">${isYoYCompare?'YoY':'Vs '+monthLabel(reportCmpKey)} <span style="color:${yoyTone(yoyPct(shareCur,shareLy))}">${yoyPct(shareCur,shareLy)!=null?fmtPct(yoyPct(shareCur,shareLy)):'-'}</span></div></div>
-    <div class="kpi"><div class="kpi-label">Untapped Share (${monthLabel(reportMonthKey)})</div><div class="kpi-val" style="color:var(--amber)">${untappedShareCur.toFixed(1)}%</div><div class="kpi-sub">${isYoYCompare?'YoY':'Vs '+monthLabel(reportCmpKey)} <span style="color:${yoyTone(yoyPct(untappedShareCur,untappedShareLy))}">${yoyPct(untappedShareCur,untappedShareLy)!=null?fmtPct(yoyPct(untappedShareCur,untappedShareLy)):'-'}</span> · ${untappedEventsCur}/${activeEventsCur.length}</div></div>
-    <div class="kpi"><div class="kpi-label">Untapped Events</div><div class="kpi-val" style="color:var(--red)">${untappedEventsCur}</div><div class="kpi-sub">${isYoYCompare?'YoY':'Vs '+monthLabel(reportCmpKey)} <span style="color:${yoyTone(yoyDiff(untappedEventsCur,untappedEventsLy))}">${yoyDiff(untappedEventsCur,untappedEventsLy)>=0?'+':''}${yoyDiff(untappedEventsCur,untappedEventsLy)}</span></div></div>
-    <div class="kpi"><div class="kpi-label">Untapped Organisers</div><div class="kpi-val" style="color:var(--red)">${untappedOrgsCur}</div><div class="kpi-sub">${isYoYCompare?'YoY':'Vs '+monthLabel(reportCmpKey)} <span style="color:${yoyTone(yoyDiff(untappedOrgsCur,untappedOrgsLy))}">${yoyDiff(untappedOrgsCur,untappedOrgsLy)>=0?'+':''}${yoyDiff(untappedOrgsCur,untappedOrgsLy)}</span> · ${activeOrgsCur} active</div></div>
+    <div class="kpi"><div class="kpi-label">Ticketing Revenue (${monthLabel(reportMonthKey)})</div><div class="kpi-val">${fmtCurOv(ticketCur)}</div><div class="kpi-sub">${isYoYCompare?'YoY':'Vs '+monthLabel(reportCmpKey)} <span class="${yoyClass(yoyPct(ticketCur,ticketLy))}">${yoyPct(ticketCur,ticketLy)!=null?fmtPct(yoyPct(ticketCur,ticketLy)):'-'}</span></div></div>
+    <div class="kpi"><div class="kpi-label">Marketing Revenue (${monthLabel(reportMonthKey)})</div><div class="kpi-val">${fmtCurOv(mktCur)}</div><div class="kpi-sub">${isYoYCompare?'YoY':'Vs '+monthLabel(reportCmpKey)} <span class="${yoyClass(yoyPct(mktCur,mktLy))}">${yoyPct(mktCur,mktLy)!=null?fmtPct(yoyPct(mktCur,mktLy)):'-'}</span></div></div>
+    <div class="kpi"><div class="kpi-label">Campaigns (${monthLabel(reportMonthKey)})</div><div class="kpi-val">${campaignsCur}</div><div class="kpi-sub">${isYoYCompare?'YoY':'Vs '+monthLabel(reportCmpKey)} <span class="${yoyClass(yoyDiff(campaignsCur,campaignsLy))}">${yoyDiff(campaignsCur,campaignsLy)>=0?'+':''}${yoyDiff(campaignsCur,campaignsLy)}</span></div></div>
+    <div class="kpi"><div class="kpi-label">Organisers With Campaigns</div><div class="kpi-val">${orgsWithCampaignsCur}</div><div class="kpi-sub">${isYoYCompare?'YoY':'Vs '+monthLabel(reportCmpKey)} <span class="${yoyClass(yoyDiff(orgsWithCampaignsCur,orgsWithCampaignsLy))}">${yoyDiff(orgsWithCampaignsCur,orgsWithCampaignsLy)>=0?'+':''}${yoyDiff(orgsWithCampaignsCur,orgsWithCampaignsLy)}</span></div></div>
+    <div class="kpi"><div class="kpi-label">Marketing Share (${monthLabel(reportMonthKey)})</div><div class="kpi-val">${shareCur.toFixed(2)}%</div><div class="kpi-sub">${isYoYCompare?'YoY':'Vs '+monthLabel(reportCmpKey)} <span class="${yoyClass(yoyPct(shareCur,shareLy))}">${yoyPct(shareCur,shareLy)!=null?fmtPct(yoyPct(shareCur,shareLy)):'-'}</span></div></div>
+    <div class="kpi"><div class="kpi-label">Untapped Share (${monthLabel(reportMonthKey)})</div><div class="kpi-val" style="color:var(--amber)">${untappedShareCur.toFixed(1)}%</div><div class="kpi-sub">${isYoYCompare?'YoY':'Vs '+monthLabel(reportCmpKey)} <span class="${yoyClass(yoyPct(untappedShareCur,untappedShareLy))}">${yoyPct(untappedShareCur,untappedShareLy)!=null?fmtPct(yoyPct(untappedShareCur,untappedShareLy)):'-'}</span> · ${untappedEventsCur}/${activeEventsCur.length}</div></div>
+    <div class="kpi"><div class="kpi-label">Untapped Events</div><div class="kpi-val" style="color:var(--red)">${untappedEventsCur}</div><div class="kpi-sub">${isYoYCompare?'YoY':'Vs '+monthLabel(reportCmpKey)} <span class="${yoyClass(yoyDiff(untappedEventsCur,untappedEventsLy))}">${yoyDiff(untappedEventsCur,untappedEventsLy)>=0?'+':''}${yoyDiff(untappedEventsCur,untappedEventsLy)}</span></div></div>
+    <div class="kpi"><div class="kpi-label">Untapped Organisers</div><div class="kpi-val" style="color:var(--red)">${untappedOrgsCur}</div><div class="kpi-sub">${isYoYCompare?'YoY':'Vs '+monthLabel(reportCmpKey)} <span class="${yoyClass(yoyDiff(untappedOrgsCur,untappedOrgsLy))}">${yoyDiff(untappedOrgsCur,untappedOrgsLy)>=0?'+':''}${yoyDiff(untappedOrgsCur,untappedOrgsLy)}</span> · ${activeOrgsCur} active</div></div>
   </div>
   <div class="action-queue">
     <h3>⚡ Priority Actions This Month</h3>
