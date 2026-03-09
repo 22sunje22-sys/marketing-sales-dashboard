@@ -553,6 +553,7 @@ async function loadData(){
 }
 const PWD='salesdash';
 const USERS={alex:{name:'Alex',filter:null},taha:{name:'Taha',filter:null},kamila:{name:'Kamilla',filter:'United Arab Emirates',mode:'only'},mohammed:{name:'Mohammed',filter:'United Arab Emirates',mode:'exclude'}};
+const GCC_COUNTRIES=['United Arab Emirates','Saudi Arabia','Bahrain','Oman','Qatar','Kuwait'];
 const COUNTRY_MARKETING_OVERRIDE={
   "United Arab Emirates":{"2023-02":426416.79,"2023-03":229731.18,"2023-04":390264.29,"2023-05":403073.52,"2023-06":15000,"2023-07":153262.5,"2023-08":327706.8,"2023-09":1031744.14,"2023-10":941163.19,"2023-11":901201.73,"2023-12":843562.41,"2024-01":798263.4,"2024-02":585040.31,"2024-03":870723.6,"2024-04":806446.5,"2024-05":401341,"2024-06":418124.7,"2024-07":275429.71,"2024-08":713243.16,"2024-09":1482374.21,"2024-10":1665092.51,"2024-11":2023802.495,"2024-12":1982319.71,"2025-01":649173.12,"2025-02":952940.47,"2025-03":504953.15,"2025-04":959420.68,"2025-05":609251.71,"2025-06":413763.5,"2025-07":405710,"2025-08":487048.22,"2025-09":806496.8,"2025-10":2079123.81,"2025-11":1504352.27,"2025-12":1551075.77,"2026-01":981152.45,"2026-02":681981.87},
   "Bahrain":{"2023-01":0,"2023-02":0,"2023-03":1013.729996,"2023-04":5360,"2023-05":500,"2023-06":5500,"2023-07":5000,"2023-08":10500,"2023-09":7350,"2023-10":300,"2023-11":5000,"2023-12":1373.640015,"2024-01":3350.549988,"2024-02":3254.549988,"2024-03":2081.820007,"2024-04":581.8200073,"2024-05":2255.14,"2024-06":1409.09,"2024-07":381,"2024-08":1954.55,"2024-09":2863.636364,"2024-10":1994.56,"2024-11":2268,"2024-12":5564.45,"2025-01":2568,"2025-02":1049.6,"2025-03":400,"2025-04":2170.81,"2025-05":5252.03,"2025-06":4200.01,"2025-07":1227.01,"2025-08":3011.01,"2025-09":3100,"2025-10":2688,"2025-11":2739.99,"2025-12":8142.27,"2026-01":855.46,"2026-02":1993.64},
@@ -582,8 +583,8 @@ async function logOrgAction(org,action,note){
   }catch(e){console.error('Action log failed',e);}
 }
 let orgListPage=0, orgListSort={col:'ps',asc:false}, orgListSearch='';
-let evtListPage=0, evtListSort={col:'rev',asc:false}, evtListSearch='';
-let orgListView='all', evtListView='all';
+let evtListPage=0, evtListSort={col:'date',asc:false}, evtListSearch='';
+let orgListView='active_last_month', evtListView='active_last_month';
 
 function monthKeyFromRawDate(raw){
   if(raw==null)return null;
@@ -749,6 +750,14 @@ function isGrowingOrg(o){
 }
 function isAttentionOrg(o){
   return o.ps>=80||o.rs>=60||daysSinceLastAction(o.organizer)>30||isDroppedOrg(o);
+}
+function hasOrgTag(o,tag){
+  if(!o||!tag)return false;
+  const t=o.tags;
+  if(!t)return false;
+  if(Array.isArray(t))return t.includes(tag);
+  if(typeof t==='string')return t.split(',').map(s=>s.trim()).filter(Boolean).includes(tag);
+  return false;
 }
 
 /* FORMATTERS */
@@ -1115,7 +1124,10 @@ function renderOverview(){
   const territoryHtml=curUser.filter?`<div class="territory-bar"><div class="tb-item"><span style="font-size:14px">📍</span><span class="tb-text"><b>${curUser.name}</b> — ${curUser.mode==='only'?curUser.filter:'GCC (Non-UAE)'}</span></div><div class="tb-item"><div class="tb-dot" style="background:var(--accent2)"></div><span class="tb-text">${ORGS.length} orgs</span></div><div class="tb-item"><div class="tb-dot" style="background:var(--green)"></div><span class="tb-text">${fmtCur(totalTick)} ticketing</span></div><div class="tb-item"><div class="tb-dot" style="background:var(--amber)"></div><span class="tb-text">${hotCount+warmCount} hot/warm leads</span></div></div>`:`<div class="territory-bar"><div class="tb-item"><span style="font-size:14px">🌍</span><span class="tb-text"><b>${curUser.name}</b> — All Regions</span></div>${topCountries.map(([c,d])=>`<div class="tb-item"><div class="tb-dot" style="background:var(--accent2)"></div><span class="tb-text">${c}: ${d.cnt} orgs (${fmtCur(d.rev)})</span></div>`).join('')}</div>`;
 
   // This-month vs same-month-last-year by country (user scope)
-  const scopeCountries=[...new Set(ORGS.map(o=>o.country))].filter(Boolean).sort();
+  const scopeCountries=[...new Set(ORGS.map(o=>o.country))]
+    .filter(Boolean)
+    .filter(c=>(curUser&&['alex','taha'].includes(curUser.id))?GCC_COUNTRIES.includes(c):true)
+    .sort();
   const countrySet=new Set(scopeCountries);
   const dataMaxKey=maxDataMonthKey(RAW_EVENTS,true);
   const monthlyByCountry=buildCountryMonthlyBase(RAW_EVENTS,countrySet,dataMaxKey);
@@ -1386,7 +1398,7 @@ function getFilteredOrgs(){
   else if(oppView==='warm')list=list.filter(o=>o.sr==='warm');
   else if(oppView==='growth')list=list.filter(o=>o.gt==='accelerating');
   else if(oppView==='risk')list=list.filter(o=>o.rs>60);
-  else if(oppView==='action_month')list=list.filter(o=>o.tags.includes('Call Today')||o.ps>=80||!ORG_ACTIONS_SET.has(o.organizer));
+  else if(oppView==='action_month')list=list.filter(o=>hasOrgTag(o,'Call Today')||o.ps>=80||!ORG_ACTIONS_SET.has(o.organizer));
   else if(oppView==='big')list=list.filter(o=>(o.tt||0)>=500000);
   else if(oppView==='small')list=list.filter(o=>(o.tt||0)<50000);
   else if(oppView==='big_opp')list=list.filter(o=>(o.rp||0)>=100000);
@@ -1405,7 +1417,7 @@ function getFilteredOrgs(){
     const q=normStr(oppFilters.search);
     list=list.filter(o=>normStr(o.organizer).includes(q));
   }
-  if(oppFilters.tag)list=list.filter(o=>o.tags.includes(oppFilters.tag));
+  if(oppFilters.tag)list=list.filter(o=>hasOrgTag(o,oppFilters.tag));
 
   return list.sort((a,b)=>b.ps-a.ps);
 }
@@ -1541,7 +1553,7 @@ function updateViewChipCounts(){
     const q=normStr(oppFilters.search);
     base=base.filter(o=>normStr(o.organizer).includes(q));
   }
-  if(oppFilters.tag)base=base.filter(o=>o.tags.includes(oppFilters.tag));
+  if(oppFilters.tag)base=base.filter(o=>hasOrgTag(o,oppFilters.tag));
   const counts={
     all:base.length,
     attention:base.filter(isAttentionOrg).length,
@@ -1552,7 +1564,7 @@ function updateViewChipCounts(){
     warm:base.filter(o=>o.sr==='warm').length,
     growth:base.filter(o=>o.gt==='accelerating').length,
     risk:base.filter(o=>o.rs>60).length,
-    action_month:base.filter(o=>o.tags.includes('Call Today')||o.ps>=80||!ORG_ACTIONS_SET.has(o.organizer)).length,
+    action_month:base.filter(o=>hasOrgTag(o,'Call Today')||o.ps>=80||!ORG_ACTIONS_SET.has(o.organizer)).length,
     big:base.filter(o=>(o.tt||0)>=500000).length,
     small:base.filter(o=>(o.tt||0)<50000).length,
     big_opp:base.filter(o=>(o.rp||0)>=100000).length,
@@ -1901,46 +1913,19 @@ async function renderActivity(){
   const p=document.getElementById('pane-activity');
   if(!p)return;
   let html='<h3 style="margin-bottom:16px">📋 Recent Activity</h3>';
-  if(!sb){p.innerHTML=html+'<p style="color:var(--text2)">Activity tracking unavailable</p>';return;}
-  try{
-    const {data:visits}=await sb.from('dashboard_visits').select('*').eq('user_id',curUser.id).order('logged_in_at',{ascending:false}).limit(20);
-    const {data:actions}=await sb.from('dashboard_actions').select('*').eq('user_id',curUser.id).order('created_at',{ascending:false}).limit(50);
-
-    html+=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">`;
-    html+=`<div class="seg-card"><h3>🔑 Recent Logins (${(visits||[]).length})</h3>`;
-    (visits||[]).forEach(v=>{
-      const d=new Date(v.logged_in_at);
-      html+=`<div class="seg-row"><span>${d.toLocaleDateString()} ${d.toLocaleTimeString()}</span><span>${v.screen_width}x${v.screen_height}</span></div>`;
+  const actions=(ORG_ACTIONS||[]).filter(a=>a.user_name===curUser.name);
+  const recent=actions.slice(0,50);
+  html+=`<div class="seg-card"><h3>⚡ My Recent Actions (${actions.length})</h3>`;
+  if(recent.length===0){
+    html+='<div style="color:var(--text3);font-size:13px">No activity yet.</div>';
+  }else{
+    const actI={worked_on:'✅',note:'📝',call:'📞',email:'📧',meeting:'🤝',task:'📋',reminder:'⏰'};
+    recent.forEach(a=>{
+      html+=`<div class="seg-row"><span>${actI[a.action]||'⚡'} ${a.action} — ${a.org.substring(0,42)}</span><span style="color:var(--text3)">${getTimeAgo(a.created_at)}</span></div>`;
     });
-    html+=`</div>`;
-
-    html+=`<div class="seg-card"><h3>⚡ Recent Actions (${(actions||[]).length})</h3>`;
-    const actionIcons={switch_tab:'📑',filter_country:'🌍',filter_tier:'📊',filter_stage:'🏷️',filter_tag:'🔖',view_filter:'👁️',search:'🔍',export:'📥',login:'🔑'};
-    (actions||[]).forEach(a=>{
-      const d=new Date(a.created_at);
-      const icon=actionIcons[a.action_type]||'⚡';
-      html+=`<div class="seg-row"><span>${icon} ${a.action_type}: ${a.action_detail||'-'}</span><span style="color:var(--text3)">${d.toLocaleTimeString()}</span></div>`;
-    });
-    html+=`</div></div>`;
-
-    // Achievement summary
-    html+=`<div class="seg-card" style="margin-top:16px"><h3>🏆 Achievements: ${userAch.size} / ${allAch.length}</h3>`;
-    const catCounts={};
-    allAch.forEach(a=>{
-      if(!catCounts[a.category])catCounts[a.category]={total:0,unlocked:0};
-      catCounts[a.category].total++;
-      if(userAch.has(a.id))catCounts[a.category].unlocked++;
-    });
-    Object.entries(catCounts).forEach(([cat,c])=>{
-      const pct=Math.round(c.unlocked/c.total*100);
-      html+=`<div class="seg-row"><span>${cat}</span><span>${c.unlocked}/${c.total} (${pct}%)</span></div>`;
-    });
-    html+='</div>';
-
-    p.innerHTML=html;
-  }catch(e){
-    p.innerHTML=html+'<p style="color:var(--text2)">Error loading activity: '+e.message+'</p>';
   }
+  html+='</div>';
+  p.innerHTML=html;
 }
 
 /* ===== ASSIGN FUNCTIONS ===== */
@@ -1977,6 +1962,7 @@ function renderOrganisers(){
   <div style="display:flex;gap:8px;margin-bottom:12px;align-items:center">
     <h3 style="flex:none;font-size:16px">📊 Organisers (${ORGS.length})</h3>
     <div class="view-chips" style="margin:0 4px 0 0">
+      <button class="view-chip vc-growth ${orgListView==='active_last_month'?'active':''}" onclick="orgListView='active_last_month';orgListPage=0;renderOrgTable()">Had Ticketing Revenue Last Month</button>
       <button class="view-chip vc-all ${orgListView==='all'?'active':''}" onclick="orgListView='all';orgListPage=0;renderOrgTable()">All</button>
       <button class="view-chip vc-warm ${orgListView==='untapped'?'active':''}" onclick="orgListView='untapped';orgListPage=0;renderOrgTable()">Untapped (No Marketing Revenue)</button>
     </div>
@@ -1991,6 +1977,7 @@ function renderOrganisers(){
 function renderOrgTable(){
   const perPage=50;
   let list=ORGS;
+  if(orgListView==='active_last_month')list=list.filter(o=>orgMonthMetrics(o.organizer).tick>0);
   if(orgListView==='untapped')list=list.filter(o=>(parseFloat(o.tm)||0)<=0);
   if(orgListSearch)list=list.filter(o=>o.organizer.toLowerCase().includes(orgListSearch)||o.country.toLowerCase().includes(orgListSearch)||(o.tier||'').toLowerCase().includes(orgListSearch));
   list=[...list].sort((a,b)=>{const v=orgListSort.asc?1:-1;const av=a[orgListSort.col],bv=b[orgListSort.col];if(typeof av==='string')return(av||'').localeCompare(bv||'')*v;return((av||0)-(bv||0))*v;});
@@ -2045,6 +2032,7 @@ function renderEvents(){
   <div style="display:flex;gap:8px;margin-bottom:12px;align-items:center">
     <h3 style="flex:none;font-size:16px">🎫 Events (${EVENTS.length})</h3>
     <div class="view-chips" style="margin:0 4px 0 0">
+      <button class="view-chip vc-growth ${evtListView==='active_last_month'?'active':''}" onclick="evtListView='active_last_month';evtListPage=0;renderEvtTable()">Had Ticketing Revenue Last Month</button>
       <button class="view-chip vc-all ${evtListView==='all'?'active':''}" onclick="evtListView='all';evtListPage=0;renderEvtTable()">All</button>
       <button class="view-chip vc-warm ${evtListView==='untapped'?'active':''}" onclick="evtListView='untapped';evtListPage=0;renderEvtTable()">Untapped (No Marketing Revenue)</button>
     </div>
@@ -2059,6 +2047,7 @@ function renderEvents(){
 function renderEvtTable(){
   const perPage=50;
   let list=EVENTS;
+  if(evtListView==='active_last_month')list=list.filter(e=>monthKeyFromRawDate(e.date)===REPORT_MONTH_KEY&&(parseFloat(e.rev)||0)>0);
   if(evtListView==='untapped')list=list.filter(e=>(parseFloat(e.mkt)||0)<=0);
   if(evtListSearch)list=list.filter(e=>(e.name||'').toLowerCase().includes(evtListSearch)||(e.org||'').toLowerCase().includes(evtListSearch)||(e.country||'').toLowerCase().includes(evtListSearch));
   list=[...list].sort((a,b)=>{const v=evtListSort.asc?1:-1;const av=a[evtListSort.col],bv=b[evtListSort.col];if(typeof av==='string')return(av||'').localeCompare(bv||'')*v;return((av||0)-(bv||0))*v;});
@@ -2678,46 +2667,34 @@ async function renderTeam(){
   const p=document.getElementById('pane-team');
   if(!p)return;
   let html='<h3 style="margin-bottom:16px">👥 Team Activity Overview</h3>';
-  if(!sb){p.innerHTML=html+'<p style="color:var(--text2)">Team data unavailable</p>';return;}
-  try{
-    const {data:allVisits}=await sb.from('dashboard_visits').select('user_name,logged_in_at').order('logged_in_at',{ascending:false}).limit(500);
-    const {data:allActions}=await sb.from('dashboard_org_actions').select('user_name,action,org,created_at').order('created_at',{ascending:false}).limit(500);
-    const teamNames=['Alex','Taha','Kamilla','Mohammed'];
-    html+='<div class="team-grid">';
-    teamNames.forEach(name=>{
-      const visits=(allVisits||[]).filter(v=>v.user_name===name);
-      const actions=(allActions||[]).filter(a=>a.user_name===name);
-      const lastLogin=visits.length>0?new Date(visits[0].logged_in_at):null;
-      const totalLogins=visits.length;
-      const lastAction=actions.length>0?actions[0]:null;
-      const totalActions=actions.length;
-      const uniqueOrgs=new Set(actions.map(a=>a.org)).size;
-      const isRecent=lastLogin&&(Date.now()-lastLogin.getTime()<86400000);
-      html+=`<div class="team-card">
-        <h4><span class="team-online ${isRecent?'active':'inactive'}"></span>${name}</h4>
-        <div class="team-stat"><span class="team-stat-label">Last login</span><span class="team-stat-val">${lastLogin?getTimeAgo(lastLogin.toISOString()):'Never'}</span></div>
-        <div class="team-stat"><span class="team-stat-label">Total logins</span><span class="team-stat-val">${totalLogins}</span></div>
-        <div class="team-stat"><span class="team-stat-label">Last action</span><span class="team-stat-val">${lastAction?getTimeAgo(lastAction.created_at)+' — '+lastAction.action+' on '+lastAction.org.substring(0,25):'None'}</span></div>
-        <div class="team-stat"><span class="team-stat-label">Total actions</span><span class="team-stat-val">${totalActions}</span></div>
-        <div class="team-stat"><span class="team-stat-label">Unique orgs touched</span><span class="team-stat-val">${uniqueOrgs}</span></div>
-      </div>`;
+  const allActions=ORG_ACTIONS||[];
+  const teamNames=['Alex','Taha','Kamilla','Mohammed'];
+  html+='<div class="team-grid">';
+  teamNames.forEach(name=>{
+    const actions=allActions.filter(a=>a.user_name===name);
+    const lastAction=actions[0]||null;
+    const totalActions=actions.length;
+    const uniqueOrgs=new Set(actions.map(a=>a.org)).size;
+    html+=`<div class="team-card">
+      <h4><span class="team-online ${lastAction?'active':'inactive'}"></span>${name}</h4>
+      <div class="team-stat"><span class="team-stat-label">Last action</span><span class="team-stat-val">${lastAction?getTimeAgo(lastAction.created_at):'None'}</span></div>
+      <div class="team-stat"><span class="team-stat-label">Action type</span><span class="team-stat-val">${lastAction?lastAction.action:'-'}</span></div>
+      <div class="team-stat"><span class="team-stat-label">Total actions</span><span class="team-stat-val">${totalActions}</span></div>
+      <div class="team-stat"><span class="team-stat-label">Unique orgs touched</span><span class="team-stat-val">${uniqueOrgs}</span></div>
+    </div>`;
+  });
+  html+='</div>';
+  html+=`<div class="seg-card" style="margin-top:20px"><h3 style="margin-bottom:12px">⚡ Recent Team Actions</h3>`;
+  const recentAll=allActions.slice(0,20);
+  if(recentAll.length===0){html+='<div style="color:var(--text3);font-size:13px">No actions yet.</div>';}
+  else{
+    const actI={worked_on:'✅',note:'📝',call:'📞',email:'📧',meeting:'🤝',task:'📋',reminder:'⏰'};
+    recentAll.forEach(a=>{
+      html+=`<div class="seg-row"><span>${actI[a.action]||'⚡'} <b>${a.user_name}</b> ${a.action} — ${a.org.substring(0,30)}</span><span style="color:var(--text3)">${getTimeAgo(a.created_at)}</span></div>`;
     });
-    html+='</div>';
-    // Recent team actions table
-    html+=`<div class="seg-card" style="margin-top:20px"><h3 style="margin-bottom:12px">⚡ Recent Team Actions</h3>`;
-    const recentAll=(allActions||[]).slice(0,20);
-    if(recentAll.length===0){html+='<div style="color:var(--text3);font-size:13px">No actions yet.</div>';}
-    else{
-      const actI={worked_on:'✅',note:'📝',call:'📞',email:'📧',meeting:'🤝',task:'📋'};
-      recentAll.forEach(a=>{
-        html+=`<div class="seg-row"><span>${actI[a.action]||'⚡'} <b>${a.user_name}</b> ${a.action} — ${a.org.substring(0,30)}</span><span style="color:var(--text3)">${getTimeAgo(a.created_at)}</span></div>`;
-      });
-    }
-    html+='</div>';
-    p.innerHTML=html;
-  }catch(e){
-    p.innerHTML=html+`<p style="color:var(--red)">Error loading team data: ${e.message}</p>`;
   }
+  html+='</div>';
+  p.innerHTML=html;
 }
 tryResumeSession();
 </script>
