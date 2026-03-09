@@ -23,6 +23,7 @@ export default async function handler(req, res) {
       const rows = (data || []).map((r) => {
         const ts =
           r.created_at ??
+          r.logged_in_at ??
           r.visit_at ??
           r.visited_at ??
           r.timestamp ??
