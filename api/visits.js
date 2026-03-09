@@ -17,11 +17,25 @@ export default async function handler(req, res) {
     try {
       const { data, error } = await supabase
         .from('dashboard_visits')
-        .select('id,user_id,user_name,created_at,user_agent,screen_width,screen_height')
-        .order('created_at', { ascending: false })
+        .select('*')
         .limit(5000);
       if (error) return res.status(500).json({ error: error.message });
-      return res.status(200).json(data || []);
+      const rows = (data || []).map((r) => {
+        const ts =
+          r.created_at ??
+          r.visit_at ??
+          r.visited_at ??
+          r.timestamp ??
+          r.inserted_at ??
+          null;
+        return { ...r, created_at: ts };
+      });
+      rows.sort((a, b) => {
+        const at = new Date(a.created_at || 0).getTime();
+        const bt = new Date(b.created_at || 0).getTime();
+        return bt - at;
+      });
+      return res.status(200).json(rows);
     } catch (_) {
       return res.status(500).json({ error: 'Internal server error' });
     }
