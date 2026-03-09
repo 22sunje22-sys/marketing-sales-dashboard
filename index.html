@@ -570,6 +570,7 @@ let ORG_MONTHLY={};
 let REPORT_MONTH_KEY='';
 let OVERVIEW_MONTH_KEY='';
 let OVERVIEW_COMPARE_KEY='';
+let OVERVIEW_COUNTRY_FILTER='';
 let COUNTRY_SOURCE_QA=null;
 async function loadActions(){
   try{
@@ -1150,10 +1151,14 @@ function renderOverview(){
     :`<div class="territory-bar"><div class="tb-item"><span style="font-size:14px">🌍</span><span class="tb-text"><b>${curUser.name}</b> — All Regions</span></div>${topCountries.map(([c,d])=>`<div class="tb-item"><div class="tb-dot" style="background:var(--accent2)"></div><span class="tb-text">${c}: ${d.cnt} orgs (${fmtCurOv(convertByCountry(d.rev,c,overviewCurrency))})</span></div>`).join('')}</div>`;
 
   // This-month vs same-month-last-year by country (user scope)
-  const scopeCountries=[...new Set(ORGS.map(o=>o.country))]
+  const allowedCountries=[...new Set(ORGS.map(o=>o.country))]
     .filter(Boolean)
     .filter(c=>(curUser&&['alex','taha'].includes(curUser.id))?GCC_COUNTRIES.includes(c):true)
     .sort();
+  const canFilterOverviewCountry=!!(curUser&&['alex','taha','mohammed'].includes(curUser.id));
+  if(!canFilterOverviewCountry)OVERVIEW_COUNTRY_FILTER='';
+  if(OVERVIEW_COUNTRY_FILTER&&!allowedCountries.includes(OVERVIEW_COUNTRY_FILTER))OVERVIEW_COUNTRY_FILTER='';
+  const scopeCountries=OVERVIEW_COUNTRY_FILTER?[OVERVIEW_COUNTRY_FILTER]:allowedCountries;
   const countrySet=new Set(scopeCountries);
   const dataMaxKey=maxDataMonthKey(RAW_EVENTS,true);
   const monthlyByCountry=buildCountryMonthlyBase(RAW_EVENTS,countrySet,dataMaxKey);
@@ -1177,7 +1182,10 @@ function renderOverview(){
   }).sort((a,b)=>b.mktCur-a.mktCur);
   const monthOpts=[...allMonthKeys].reverse().map(mk=>`<option value="${mk}" ${mk===reportMonthKey?'selected':''}>${monthLabel(mk)}</option>`).join('');
   const compareOpts=[...allMonthKeys].reverse().filter(mk=>mk!==reportMonthKey).map(mk=>`<option value="${mk}" ${mk===reportCmpKey?'selected':''}>${monthLabel(mk)}</option>`).join('');
+  const countryOpts=`<option value="">All Countries</option>`+allowedCountries.map(c=>`<option value="${c}" ${c===OVERVIEW_COUNTRY_FILTER?'selected':''}>${c}</option>`).join('');
   const countryMomentumHtml=`<div style="display:flex;justify-content:flex-end;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap">
+    ${canFilterOverviewCountry?`<span style="color:var(--text2);font-size:12px">Country</span>
+    <select id="ovCountrySel" style="background:var(--surface);color:var(--text1);border:1px solid var(--border);border-radius:8px;padding:6px 10px;font-size:12px">${countryOpts}</select>`:''}
     <span style="color:var(--text2);font-size:12px">Month</span>
     <select id="ovMonthSel" style="background:var(--surface);color:var(--text1);border:1px solid var(--border);border-radius:8px;padding:6px 10px;font-size:12px">${monthOpts}</select>
     <span style="color:var(--text2);font-size:12px">Compare</span>
@@ -1302,6 +1310,13 @@ function renderOverview(){
   if(ovCompareSel){
     ovCompareSel.addEventListener('change',e=>{
       OVERVIEW_COMPARE_KEY=e.target.value||'';
+      renderOverview();
+    });
+  }
+  const ovCountrySel=document.getElementById('ovCountrySel');
+  if(ovCountrySel){
+    ovCountrySel.addEventListener('change',e=>{
+      OVERVIEW_COUNTRY_FILTER=e.target.value||'';
       renderOverview();
     });
   }
