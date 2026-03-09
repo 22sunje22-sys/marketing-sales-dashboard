@@ -569,6 +569,7 @@ let ORG_ACTIONS=[], ORG_ACTIONS_SET=new Set();
 let ORG_MONTHLY={};
 let REPORT_MONTH_KEY='';
 let OVERVIEW_MONTH_KEY='';
+let OVERVIEW_COMPARE_KEY='';
 let COUNTRY_SOURCE_QA=null;
 async function loadActions(){
   try{
@@ -765,6 +766,22 @@ function hasOrgTag(o,tag){
 const fmt=n=>{if(n==null)return'-';if(Math.abs(n)>=1e6)return(n/1e6).toFixed(1)+'M';if(Math.abs(n)>=1e3)return(n/1e3).toFixed(1)+'K';return n.toFixed?n.toFixed(0):n;};
 const fmtPct=n=>n!=null?(n>0?'+':'')+n.toFixed(1)+'%':'-';
 const fmtCur=n=>{if(n==null)return'-';if(Math.abs(n)>=1e9)return'AED '+(n/1e9).toFixed(1)+'B';if(Math.abs(n)>=1e6)return'AED '+(n/1e6).toFixed(1)+'M';if(Math.abs(n)>=1e3)return'AED '+(n/1e3).toFixed(0)+'K';return'AED '+Math.round(n);};
+function fmtCurWithCode(n,code='AED'){
+  if(n==null)return'-';
+  if(Math.abs(n)>=1e9)return`${code} ${(n/1e9).toFixed(1)}B`;
+  if(Math.abs(n)>=1e6)return`${code} ${(n/1e6).toFixed(1)}M`;
+  if(Math.abs(n)>=1e3)return`${code} ${(n/1e3).toFixed(0)}K`;
+  return`${code} ${Math.round(n)}`;
+}
+const COUNTRY_CURRENCY={ 'United Arab Emirates':'AED','Saudi Arabia':'SAR','Bahrain':'BHD','Oman':'OMR','Qatar':'QAR','Kuwait':'KWD' };
+const TO_SAR={ SAR:1, AED:(3.75/3.6725), QAR:(3.75/3.64), BHD:(3.75/0.376), OMR:(3.75/0.3845), KWD:(3.75/0.307) };
+function convertByCountry(v,country,target='AED'){
+  const n=parseFloat(v)||0;
+  if(target!=='SAR')return n;
+  const ccy=COUNTRY_CURRENCY[country]||'SAR';
+  const rate=TO_SAR[ccy]||1;
+  return n*rate;
+}
 
 /* LOGIN */
 const AUTH_COOKIE='pl_dash_auth';
@@ -1112,6 +1129,8 @@ function showOrgEvents(orgName){
 /* ===== OVERVIEW TAB ===== */
 function renderOverview(){
   const p=document.getElementById('pane-overview');
+  const overviewCurrency=(curUser&&curUser.id==='mohammed')?'SAR':'AED';
+  const fmtCurOv=(v)=>fmtCurWithCode(v,overviewCurrency);
   const totalTick=ORGS.reduce((s,o)=>s+o.tt,0);
   const totalMkt=ORGS.reduce((s,o)=>s+o.tm,0);
   const avgShare=totalTick>0?(totalMkt/totalTick*100):0;
@@ -1123,11 +1142,12 @@ function renderOverview(){
 
   // Territory summary
   const countries={};ORGS.forEach(o=>{if(!countries[o.country])countries[o.country]={cnt:0,rev:0};countries[o.country].cnt++;countries[o.country].rev+=o.tt;});
+  const totalTickDisplay=Object.entries(countries).reduce((s,[country,d])=>s+convertByCountry(d.rev,country,overviewCurrency),0);
   const topCountries=Object.entries(countries).sort((a,b)=>b[1].rev-a[1].rev).slice(0,5);
   const territoryLabel=curUser.mode==='list'?(curUser.countries||[]).join(', '):(curUser.mode==='only'?curUser.filter:'GCC (Non-UAE)');
   const territoryHtml=(curUser.filter||curUser.mode==='list')
-    ?`<div class="territory-bar"><div class="tb-item"><span style="font-size:14px">📍</span><span class="tb-text"><b>${curUser.name}</b> — ${territoryLabel}</span></div><div class="tb-item"><div class="tb-dot" style="background:var(--accent2)"></div><span class="tb-text">${ORGS.length} orgs</span></div><div class="tb-item"><div class="tb-dot" style="background:var(--green)"></div><span class="tb-text">${fmtCur(totalTick)} ticketing</span></div><div class="tb-item"><div class="tb-dot" style="background:var(--amber)"></div><span class="tb-text">${hotCount+warmCount} hot/warm leads</span></div></div>`
-    :`<div class="territory-bar"><div class="tb-item"><span style="font-size:14px">🌍</span><span class="tb-text"><b>${curUser.name}</b> — All Regions</span></div>${topCountries.map(([c,d])=>`<div class="tb-item"><div class="tb-dot" style="background:var(--accent2)"></div><span class="tb-text">${c}: ${d.cnt} orgs (${fmtCur(d.rev)})</span></div>`).join('')}</div>`;
+    ?`<div class="territory-bar"><div class="tb-item"><span style="font-size:14px">📍</span><span class="tb-text"><b>${curUser.name}</b> — ${territoryLabel}</span></div><div class="tb-item"><div class="tb-dot" style="background:var(--accent2)"></div><span class="tb-text">${ORGS.length} orgs</span></div><div class="tb-item"><div class="tb-dot" style="background:var(--green)"></div><span class="tb-text">${fmtCurOv(totalTickDisplay)} ticketing</span></div><div class="tb-item"><div class="tb-dot" style="background:var(--amber)"></div><span class="tb-text">${hotCount+warmCount} hot/warm leads</span></div></div>`
+    :`<div class="territory-bar"><div class="tb-item"><span style="font-size:14px">🌍</span><span class="tb-text"><b>${curUser.name}</b> — All Regions</span></div>${topCountries.map(([c,d])=>`<div class="tb-item"><div class="tb-dot" style="background:var(--accent2)"></div><span class="tb-text">${c}: ${d.cnt} orgs (${fmtCurOv(convertByCountry(d.rev,c,overviewCurrency))})</span></div>`).join('')}</div>`;
 
   // This-month vs same-month-last-year by country (user scope)
   const scopeCountries=[...new Set(ORGS.map(o=>o.country))]
@@ -1140,28 +1160,38 @@ function renderOverview(){
   const allMonthKeys=[...new Set(Object.keys(monthlyByCountry).map(k=>k.split('||')[1]))].sort();
   const latestMonthKey=[...allMonthKeys].reverse().find(mk=>scopeCountries.some(c=>{const m=getCountryMonthMetrics(c,mk,monthlyByCountry);return m.mkt>0||m.rev>0;}))||allMonthKeys[allMonthKeys.length-1]||null;
   const reportMonthKey=(OVERVIEW_MONTH_KEY&&allMonthKeys.includes(OVERVIEW_MONTH_KEY))?OVERVIEW_MONTH_KEY:latestMonthKey;
-  const reportLyKey=shiftMonthKey(reportMonthKey,-12);
+  const defaultCompareKey=shiftMonthKey(reportMonthKey,-12);
+  const reportCmpKey=(OVERVIEW_COMPARE_KEY&&allMonthKeys.includes(OVERVIEW_COMPARE_KEY)&&OVERVIEW_COMPARE_KEY!==reportMonthKey)?OVERVIEW_COMPARE_KEY:defaultCompareKey;
+  const isYoYCompare=reportCmpKey===defaultCompareKey;
   const cmRows=scopeCountries.map(c=>{
     const cur=getCountryMonthMetrics(c,reportMonthKey,monthlyByCountry);
-    const ly=getCountryMonthMetrics(c,reportLyKey,monthlyByCountry);
+    const ly=getCountryMonthMetrics(c,reportCmpKey,monthlyByCountry);
     const shareCur=cur.rev>0?(cur.mkt/cur.rev*100):0;
     const shareLy=ly.rev>0?(ly.mkt/ly.rev*100):0;
-    return {country:c,mktCur:cur.mkt,mktLy:ly.mkt,shareCur,shareLy};
+    return {
+      country:c,
+      mktCur:convertByCountry(cur.mkt,c,overviewCurrency),
+      mktLy:convertByCountry(ly.mkt,c,overviewCurrency),
+      shareCur,shareLy
+    };
   }).sort((a,b)=>b.mktCur-a.mktCur);
   const monthOpts=[...allMonthKeys].reverse().map(mk=>`<option value="${mk}" ${mk===reportMonthKey?'selected':''}>${monthLabel(mk)}</option>`).join('');
-  const countryMomentumHtml=`<div style="display:flex;justify-content:flex-end;align-items:center;gap:8px;margin-bottom:10px">
+  const compareOpts=[...allMonthKeys].reverse().filter(mk=>mk!==reportMonthKey).map(mk=>`<option value="${mk}" ${mk===reportCmpKey?'selected':''}>${monthLabel(mk)}</option>`).join('');
+  const countryMomentumHtml=`<div style="display:flex;justify-content:flex-end;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap">
     <span style="color:var(--text2);font-size:12px">Month</span>
     <select id="ovMonthSel" style="background:var(--surface);color:var(--text1);border:1px solid var(--border);border-radius:8px;padding:6px 10px;font-size:12px">${monthOpts}</select>
+    <span style="color:var(--text2);font-size:12px">Compare</span>
+    <select id="ovCompareSel" style="background:var(--surface);color:var(--text1);border:1px solid var(--border);border-radius:8px;padding:6px 10px;font-size:12px">${compareOpts}</select>
   </div>
   <div class="chart-grid" style="margin-bottom:14px">
-    <div class="chart-box"><h3>Marketing Revenue by Country (${monthLabel(reportMonthKey)} vs ${monthLabel(reportLyKey)})</h3><canvas id="chCountryMktYoY"></canvas></div>
-    <div class="chart-box"><h3>Marketing Share by Country (${monthLabel(reportMonthKey)} vs ${monthLabel(reportLyKey)})</h3><canvas id="chCountryShareYoY"></canvas></div>
+    <div class="chart-box"><h3>Marketing Revenue by Country (${monthLabel(reportMonthKey)} vs ${monthLabel(reportCmpKey)})</h3><canvas id="chCountryMktYoY"></canvas></div>
+    <div class="chart-box"><h3>Marketing Share by Country (${monthLabel(reportMonthKey)} vs ${monthLabel(reportCmpKey)})</h3><canvas id="chCountryShareYoY"></canvas></div>
   </div>`;
 
   const eventsCur=(RAW_EVENTS||[]).filter(e=>scopeCountries.includes(e.country)&&monthKeyFromRawDate(e.date)===reportMonthKey&&(e.type||'').toLowerCase()==='event');
-  const eventsLy=(RAW_EVENTS||[]).filter(e=>scopeCountries.includes(e.country)&&monthKeyFromRawDate(e.date)===reportLyKey&&(e.type||'').toLowerCase()==='event');
-  const ticketCur=eventsCur.reduce((s,e)=>s+(parseFloat(e.rev)||0),0);
-  const ticketLy=eventsLy.reduce((s,e)=>s+(parseFloat(e.rev)||0),0);
+  const eventsLy=(RAW_EVENTS||[]).filter(e=>scopeCountries.includes(e.country)&&monthKeyFromRawDate(e.date)===reportCmpKey&&(e.type||'').toLowerCase()==='event');
+  const ticketCur=eventsCur.reduce((s,e)=>s+convertByCountry(parseFloat(e.rev)||0,e.country,overviewCurrency),0);
+  const ticketLy=eventsLy.reduce((s,e)=>s+convertByCountry(parseFloat(e.rev)||0,e.country,overviewCurrency),0);
   const mktCur=cmRows.reduce((s,r)=>s+(r.mktCur||0),0);
   const mktLy=cmRows.reduce((s,r)=>s+(r.mktLy||0),0);
   const campaignsCur=eventsCur.filter(e=>(parseFloat(e.mkt)||0)>0).length;
@@ -1173,6 +1203,11 @@ function renderOverview(){
   const activeOrgsCur=new Set(activeEventsCur.map(e=>e.org)).size;
   const untappedOrgsCur=new Set(activeEventsCur.filter(e=>(parseFloat(e.mkt)||0)<=0).map(e=>e.org)).size;
   const untappedShareCur=activeEventsCur.length>0?(untappedEventsCur/activeEventsCur.length*100):0;
+  const activeEventsLy=eventsLy.filter(e=>(parseFloat(e.rev)||0)>0);
+  const untappedEventsLy=activeEventsLy.filter(e=>(parseFloat(e.mkt)||0)<=0).length;
+  const activeOrgsLy=new Set(activeEventsLy.map(e=>e.org)).size;
+  const untappedOrgsLy=new Set(activeEventsLy.filter(e=>(parseFloat(e.mkt)||0)<=0).map(e=>e.org)).size;
+  const untappedShareLy=activeEventsLy.length>0?(untappedEventsLy/activeEventsLy.length*100):0;
   const shareCur=ticketCur>0?(mktCur/ticketCur*100):0;
   const shareLy=ticketLy>0?(mktLy/ticketLy*100):0;
   const yoyPct=(cur,ly)=>ly>0?((cur-ly)/ly*100):null;
@@ -1190,7 +1225,7 @@ function renderOverview(){
     const smallCnt=list.filter(o=>(o.tt||0)<50000).length;
     const challengeCnt=list.filter(o=>(o.rs||0)>=60||o.lc==='at-risk'||(o.sg||0)>=3).length;
     const noChallengeCnt=Math.max(0,list.length-challengeCnt);
-    const potential=list.reduce((s,o)=>s+(o.rp||0),0);
+    const potential=list.reduce((s,o)=>s+convertByCountry((o.rp||0),o.country,overviewCurrency),0);
     const challengeRate=list.length?(challengeCnt/list.length):0;
     let challengeLevel='Low',challengeCls='radar-low';
     if(challengeRate>=0.4){challengeLevel='High';challengeCls='radar-high';}
@@ -1204,7 +1239,7 @@ function renderOverview(){
     return b.potential-a.potential;
   });
 
-  const radarRows=countryRadar.slice(0,15).map(r=>`<tr class="radar-row" onclick="drillDownCountry('${r.country.replace(/'/g,"\\'")}','all')" title="Open ${r.country} in Opportunities"><td><b>${r.country}</b></td><td>${r.growingCnt}</td><td>${r.decliningCnt}</td><td>${r.bigCnt}</td><td>${r.smallCnt}</td><td style="color:var(--red)">${r.challengeCnt}</td><td style="color:var(--green)">${r.noChallengeCnt}</td><td><span class="radar-tag ${r.challengeCls}">${r.challengeLevel}</span></td><td style="color:var(--green)">${fmtCur(r.potential)}</td></tr>`).join('');
+  const radarRows=countryRadar.slice(0,15).map(r=>`<tr class="radar-row" onclick="drillDownCountry('${r.country.replace(/'/g,"\\'")}','all')" title="Open ${r.country} in Opportunities"><td><b>${r.country}</b></td><td>${r.growingCnt}</td><td>${r.decliningCnt}</td><td>${r.bigCnt}</td><td>${r.smallCnt}</td><td style="color:var(--red)">${r.challengeCnt}</td><td style="color:var(--green)">${r.noChallengeCnt}</td><td><span class="radar-tag ${r.challengeCls}">${r.challengeLevel}</span></td><td style="color:var(--green)">${fmtCurOv(r.potential)}</td></tr>`).join('');
   const radarTitle=curUser&&curUser.id==='mohammed'?'Country Sales Radar (priority by challenge)':'Country Sales Radar';
   const countryRadarHtml=`<div class="country-radar"><h3>🌍 ${radarTitle}</h3><table><thead><tr><th>Country</th><th>Growing</th><th>Declining</th><th>Big</th><th>Small</th><th>Challenge</th><th>No Challenge</th><th>Level</th><th>Potential</th></tr></thead><tbody>${radarRows||'<tr><td colspan=\"9\" style=\"color:var(--text3)\">No country data</td></tr>'}</tbody></table></div>`;
 
@@ -1212,14 +1247,14 @@ function renderOverview(){
   ${territoryHtml}
   ${countryMomentumHtml}
   <div class="kpi-row">
-    <div class="kpi"><div class="kpi-label">Ticketing Revenue (${monthLabel(reportMonthKey)})</div><div class="kpi-val">${fmtCur(ticketCur)}</div><div class="kpi-sub">YoY ${yoyPct(ticketCur,ticketLy)!=null?fmtPct(yoyPct(ticketCur,ticketLy)):'-'}</div></div>
-    <div class="kpi"><div class="kpi-label">Marketing Revenue (${monthLabel(reportMonthKey)})</div><div class="kpi-val">${fmtCur(mktCur)}</div><div class="kpi-sub">YoY ${yoyPct(mktCur,mktLy)!=null?fmtPct(yoyPct(mktCur,mktLy)):'-'}</div></div>
-    <div class="kpi"><div class="kpi-label">Campaigns (${monthLabel(reportMonthKey)})</div><div class="kpi-val">${campaignsCur}</div><div class="kpi-sub">YoY ${yoyDiff(campaignsCur,campaignsLy)>=0?'+':''}${yoyDiff(campaignsCur,campaignsLy)}</div></div>
-    <div class="kpi"><div class="kpi-label">Organisers With Campaigns</div><div class="kpi-val">${orgsWithCampaignsCur}</div><div class="kpi-sub">YoY ${yoyDiff(orgsWithCampaignsCur,orgsWithCampaignsLy)>=0?'+':''}${yoyDiff(orgsWithCampaignsCur,orgsWithCampaignsLy)}</div></div>
-    <div class="kpi"><div class="kpi-label">Marketing Share (${monthLabel(reportMonthKey)})</div><div class="kpi-val">${shareCur.toFixed(2)}%</div><div class="kpi-sub">YoY ${yoyPct(shareCur,shareLy)!=null?fmtPct(yoyPct(shareCur,shareLy)):'-'}</div></div>
-    <div class="kpi"><div class="kpi-label">Untapped Share (${monthLabel(reportMonthKey)})</div><div class="kpi-val" style="color:var(--amber)">${untappedShareCur.toFixed(1)}%</div><div class="kpi-sub">${untappedEventsCur} of ${activeEventsCur.length} events</div></div>
-    <div class="kpi"><div class="kpi-label">Untapped Events</div><div class="kpi-val" style="color:var(--red)">${untappedEventsCur}</div><div class="kpi-sub">No marketing revenue</div></div>
-    <div class="kpi"><div class="kpi-label">Untapped Organisers</div><div class="kpi-val" style="color:var(--red)">${untappedOrgsCur}</div><div class="kpi-sub">${activeOrgsCur} active organisers</div></div>
+    <div class="kpi"><div class="kpi-label">Ticketing Revenue (${monthLabel(reportMonthKey)})</div><div class="kpi-val">${fmtCurOv(ticketCur)}</div><div class="kpi-sub">${isYoYCompare?'YoY':'Vs '+monthLabel(reportCmpKey)} ${yoyPct(ticketCur,ticketLy)!=null?fmtPct(yoyPct(ticketCur,ticketLy)):'-'}</div></div>
+    <div class="kpi"><div class="kpi-label">Marketing Revenue (${monthLabel(reportMonthKey)})</div><div class="kpi-val">${fmtCurOv(mktCur)}</div><div class="kpi-sub">${isYoYCompare?'YoY':'Vs '+monthLabel(reportCmpKey)} ${yoyPct(mktCur,mktLy)!=null?fmtPct(yoyPct(mktCur,mktLy)):'-'}</div></div>
+    <div class="kpi"><div class="kpi-label">Campaigns (${monthLabel(reportMonthKey)})</div><div class="kpi-val">${campaignsCur}</div><div class="kpi-sub">${isYoYCompare?'YoY':'Vs '+monthLabel(reportCmpKey)} ${yoyDiff(campaignsCur,campaignsLy)>=0?'+':''}${yoyDiff(campaignsCur,campaignsLy)}</div></div>
+    <div class="kpi"><div class="kpi-label">Organisers With Campaigns</div><div class="kpi-val">${orgsWithCampaignsCur}</div><div class="kpi-sub">${isYoYCompare?'YoY':'Vs '+monthLabel(reportCmpKey)} ${yoyDiff(orgsWithCampaignsCur,orgsWithCampaignsLy)>=0?'+':''}${yoyDiff(orgsWithCampaignsCur,orgsWithCampaignsLy)}</div></div>
+    <div class="kpi"><div class="kpi-label">Marketing Share (${monthLabel(reportMonthKey)})</div><div class="kpi-val">${shareCur.toFixed(2)}%</div><div class="kpi-sub">${isYoYCompare?'YoY':'Vs '+monthLabel(reportCmpKey)} ${yoyPct(shareCur,shareLy)!=null?fmtPct(yoyPct(shareCur,shareLy)):'-'}</div></div>
+    <div class="kpi"><div class="kpi-label">Untapped Share (${monthLabel(reportMonthKey)})</div><div class="kpi-val" style="color:var(--amber)">${untappedShareCur.toFixed(1)}%</div><div class="kpi-sub">${isYoYCompare?'YoY':'Vs '+monthLabel(reportCmpKey)} ${yoyPct(untappedShareCur,untappedShareLy)!=null?fmtPct(yoyPct(untappedShareCur,untappedShareLy)):'-'} · ${untappedEventsCur}/${activeEventsCur.length}</div></div>
+    <div class="kpi"><div class="kpi-label">Untapped Events</div><div class="kpi-val" style="color:var(--red)">${untappedEventsCur}</div><div class="kpi-sub">${isYoYCompare?'YoY':'Vs '+monthLabel(reportCmpKey)} ${yoyDiff(untappedEventsCur,untappedEventsLy)>=0?'+':''}${yoyDiff(untappedEventsCur,untappedEventsLy)}</div></div>
+    <div class="kpi"><div class="kpi-label">Untapped Organisers</div><div class="kpi-val" style="color:var(--red)">${untappedOrgsCur}</div><div class="kpi-sub">${isYoYCompare?'YoY':'Vs '+monthLabel(reportCmpKey)} ${yoyDiff(untappedOrgsCur,untappedOrgsLy)>=0?'+':''}${yoyDiff(untappedOrgsCur,untappedOrgsLy)} · ${activeOrgsCur} active</div></div>
   </div>
   <div class="action-queue">
     <h3>⚡ Priority Actions This Month</h3>
@@ -1229,28 +1264,28 @@ function renderOverview(){
         const detail=o.nba.split('—').slice(1).join('—').trim();
         const icon=aqIcons[action]||'⚡';
         const cls=o.sr==='hot'?'aq-hot':o.rs>60?'aq-warm':'aq-growth';
-        return`<div class="aq-item ${cls}" onclick="drillDown('all','${o.organizer.replace(/'/g,"\\'")}')" title="Click to view in Opportunities"><div class="aq-icon">${icon}</div><div class="aq-body"><div class="aq-org">${o.organizer}</div><div class="aq-detail">${action}: ${detail} · ${o.country} · ${o.tier}</div></div><div class="aq-metric"><div class="aq-val" style="color:var(--green)">${fmtCur(o.rp)}</div><div class="aq-label">mkt potential</div></div></div>`;
+        return`<div class="aq-item ${cls}" onclick="drillDown('all','${o.organizer.replace(/'/g,"\\'")}')" title="Click to view in Opportunities"><div class="aq-icon">${icon}</div><div class="aq-body"><div class="aq-org">${o.organizer}</div><div class="aq-detail">${action}: ${detail} · ${o.country} · ${o.tier}</div></div><div class="aq-metric"><div class="aq-val" style="color:var(--green)">${fmtCurOv(convertByCountry((o.rp||0),o.country,overviewCurrency))}</div><div class="aq-label">mkt potential</div></div></div>`;
       }).join('')}
     </div>
   </div>
   ${countryRadarHtml}`;
 
   // Country YoY charts (scope-aware by user)
-  if(cmRows.length>0&&reportMonthKey&&reportLyKey){
+  if(cmRows.length>0&&reportMonthKey&&reportCmpKey){
     const labels=cmRows.map(r=>r.country);
     charts.countryMktYoY=new Chart(document.getElementById('chCountryMktYoY'),{
       type:'bar',
       data:{labels,datasets:[
         {label:monthLabel(reportMonthKey),data:cmRows.map(r=>r.mktCur),backgroundColor:'rgba(121,226,255,0.7)',borderColor:'#79E2FF',borderWidth:1,borderRadius:6},
-        {label:monthLabel(reportLyKey),data:cmRows.map(r=>r.mktLy),backgroundColor:'rgba(199,248,138,0.55)',borderColor:'#C7F88A',borderWidth:1,borderRadius:6}
+        {label:monthLabel(reportCmpKey),data:cmRows.map(r=>r.mktLy),backgroundColor:'rgba(199,248,138,0.55)',borderColor:'#C7F88A',borderWidth:1,borderRadius:6}
       ]},
-      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#8fa8b4'}},tooltip:{callbacks:{label:ctx=>`${ctx.dataset.label}: ${fmtCur(ctx.raw)}`}}},scales:{x:{ticks:{color:'#5d7a86'}},y:{ticks:{color:'#5d7a86',callback:v=>fmtCur(v)},grid:{color:'rgba(255,255,255,0.06)'}}}}
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#8fa8b4'}},tooltip:{callbacks:{label:ctx=>`${ctx.dataset.label}: ${fmtCurOv(ctx.raw)}`}}},scales:{x:{ticks:{color:'#5d7a86'}},y:{ticks:{color:'#5d7a86',callback:v=>fmtCurOv(v)},grid:{color:'rgba(255,255,255,0.06)'}}}}
     });
     charts.countryShareYoY=new Chart(document.getElementById('chCountryShareYoY'),{
       type:'bar',
       data:{labels,datasets:[
         {label:monthLabel(reportMonthKey),data:cmRows.map(r=>parseFloat(r.shareCur.toFixed(3))),backgroundColor:'rgba(245,158,11,0.7)',borderColor:'#F59E0B',borderWidth:1,borderRadius:6},
-        {label:monthLabel(reportLyKey),data:cmRows.map(r=>parseFloat(r.shareLy.toFixed(3))),backgroundColor:'rgba(139,92,246,0.55)',borderColor:'#8B5CF6',borderWidth:1,borderRadius:6}
+        {label:monthLabel(reportCmpKey),data:cmRows.map(r=>parseFloat(r.shareLy.toFixed(3))),backgroundColor:'rgba(139,92,246,0.55)',borderColor:'#8B5CF6',borderWidth:1,borderRadius:6}
       ]},
       options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#8fa8b4'}},tooltip:{callbacks:{label:ctx=>`${ctx.dataset.label}: ${ctx.raw.toFixed(3)}%`}}},scales:{x:{ticks:{color:'#5d7a86'}},y:{ticks:{color:'#5d7a86',callback:v=>v.toFixed(2)+'%'},grid:{color:'rgba(255,255,255,0.06)'}}}}
     });
@@ -1259,6 +1294,14 @@ function renderOverview(){
   if(ovMonthSel){
     ovMonthSel.addEventListener('change',e=>{
       OVERVIEW_MONTH_KEY=e.target.value||'';
+      if(OVERVIEW_COMPARE_KEY===OVERVIEW_MONTH_KEY)OVERVIEW_COMPARE_KEY='';
+      renderOverview();
+    });
+  }
+  const ovCompareSel=document.getElementById('ovCompareSel');
+  if(ovCompareSel){
+    ovCompareSel.addEventListener('change',e=>{
+      OVERVIEW_COMPARE_KEY=e.target.value||'';
       renderOverview();
     });
   }
