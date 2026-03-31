@@ -10,34 +10,24 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-  res.setHeader('Cache-Control', 's-maxage=300, stale-while-revalidate=600');
+  // Cache harder to reduce repeated heavy cold queries under Vercel time limits.
+  res.setHeader('Cache-Control', 's-maxage=3600, stale-while-revalidate=86400');
 
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
 
   try {
-    let allRows = [];
-    let from = 0;
-    const PAGE = 1000;
-
-    while (true) {
-      const { data, error } = await supabase
-        .from('dashboard_events')
-        .select('org,name,country,type,event_id,date,year,rev,mkt,share')
-        .order('id', { ascending: true })
-        .range(from, from + PAGE - 1);
-
-      if (error) {
-        console.error('Page error:', error.message);
-        return res.status(500).json({ error: error.message });
-      }
-      if (!data || data.length === 0) break;
-      allRows = allRows.concat(data);
-      if (data.length < PAGE) break;
-      from += PAGE;
+    // Single-shot fetch is significantly faster than paginated ordered scans.
+    const { data, error } = await supabase
+      .from('dashboard_events')
+      .select('org,name,country,type,event_id,date,year,rev,mkt,share')
+      .range(0, 50000);
+    if (error) {
+      console.error('Events fetch error:', error.message);
+      return res.status(500).json({ error: error.message });
     }
 
-    return res.status(200).json(allRows.map(row => ({
+    return res.status(200).json((data || []).map(row => ({
       org: row.org, name: row.name, country: row.country, type: row.type,
       id: row.event_id, date: row.date, year: row.year,
       rev: row.rev, mkt: row.mkt, share: row.share
