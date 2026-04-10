@@ -10,7 +10,6 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-  // Cache harder to reduce repeated heavy cold queries under Vercel time limits.
   res.setHeader('Cache-Control', 's-maxage=3600, stale-while-revalidate=86400');
 
   if (req.method === 'OPTIONS') return res.status(200).end();
@@ -19,7 +18,7 @@ export default async function handler(req, res) {
   try {
     const orgParam = typeof req.query?.org === 'string' ? req.query.org.trim() : '';
 
-    // Org-specific lookup: single query with limit
+    // Org-specific lookup: query raw table for individual event rows
     if (orgParam) {
       const requestedLimit = parseInt(req.query?.limit, 10);
       const limit = Number.isFinite(requestedLimit) && requestedLimit > 0
@@ -47,22 +46,20 @@ export default async function handler(req, res) {
       })));
     }
 
-    // Full load: cursor-based pagination to fetch all events
+    // Full load: offset pagination over aggregated monthly view
+    // dashboard_events_monthly groups raw rows by (event_id, month) — ~29k rows total vs 151k raw
     const pageSize = 1000;
-    const maxPages = 20;
+    const maxPages = 40;
     let allRows = [];
-    let lastId = 0;
 
     for (let i = 0; i < maxPages; i++) {
-      let query = supabase
-        .from('dashboard_events')
+      const { data, error } = await supabase
+        .from('dashboard_events_monthly')
         .select('id,org,name,country,type,event_id,date,year,rev,mkt,share')
-        .order('id', { ascending: true })
-        .limit(pageSize);
-
-      if (lastId > 0) query = query.gt('id', lastId);
-
-      const { data, error } = await query;
+        .order('year', { ascending: true })
+        .order('date', { ascending: true })
+        .order('event_id', { ascending: true })
+        .range(i * pageSize, (i + 1) * pageSize - 1);
 
       if (error) {
         console.error('Events fetch error:', error.message);
@@ -72,10 +69,6 @@ export default async function handler(req, res) {
       if (!data || data.length === 0) break;
       allRows = allRows.concat(data);
       if (data.length < pageSize) break;
-
-      const nextLastId = Number(data[data.length - 1]?.id || 0);
-      if (!Number.isFinite(nextLastId) || nextLastId <= lastId) break;
-      lastId = nextLastId;
     }
 
     return res.status(200).json(allRows.map(row => ({
