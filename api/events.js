@@ -46,29 +46,11 @@ export default async function handler(req, res) {
       })));
     }
 
-    // Full load: offset pagination over aggregated monthly view
-    // dashboard_events_monthly groups raw rows by (event_id, month) — ~29k rows total vs 151k raw
-    const pageSize = 1000;
-    const maxPages = 40;
-    let allRows = [];
-
-    for (let i = 0; i < maxPages; i++) {
-      const { data, error } = await supabase
-        .from('dashboard_events_monthly')
-        .select('id,org,name,country,type,event_id,date,year,rev,mkt,share')
-        .order('year', { ascending: true })
-        .order('date', { ascending: true })
-        .order('event_id', { ascending: true })
-        .range(i * pageSize, (i + 1) * pageSize - 1);
-
-      if (error) {
-        console.error('Events fetch error:', error.message);
-        return res.status(500).json({ error: error.message });
-      }
-
-      if (!data || data.length === 0) break;
-      allRows = allRows.concat(data);
-      if (data.length < pageSize) break;
+    // Full load: single RPC call — bypasses REST row limit, returns full materialized view (~30k rows)
+    const { data: allRows, error: rpcError } = await supabase.rpc('get_events_monthly');
+    if (rpcError) {
+      console.error('Events RPC error:', rpcError.message);
+      return res.status(500).json({ error: rpcError.message });
     }
 
     return res.status(200).json(allRows.map(row => ({
