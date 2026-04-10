@@ -1059,73 +1059,66 @@ function setLoginError(msg){
   errEl.textContent=msg||'';
   errEl.style.display=msg?'block':'none';
 }
-function toggleEmailLogin(showEmail){
-  const slack=document.getElementById('slackAuthBox');
-  const email=document.getElementById('emailAuthBox');
-  if(!slack||!email)return;
-  email.classList.toggle('hidden',!showEmail);
-  slack.classList.toggle('hidden',!!showEmail);
+function switchLoginMethod(method){
+  document.getElementById('btnMethodEmail').classList.toggle('active',method==='email');
+  document.getElementById('btnMethodSlack').classList.toggle('active',method==='slack');
+  document.getElementById('sectionEmail').classList.toggle('active',method==='email');
+  document.getElementById('sectionSlack').classList.toggle('active',method==='slack');
   setLoginError('');
+}
+function showAuthMsg(id,text,type){
+  const el=document.getElementById(id);
+  if(!el)return;
+  el.textContent=text;
+  el.className='auth-msg '+type;
+  el.style.display='block';
+}
+function resetEmailSection(){
+  document.getElementById('emailOtpSection').classList.remove('active');
+  document.getElementById('emailOtpInput').value='';
+  const msg=document.getElementById('emailMsg');
+  if(msg)msg.style.display='none';
+}
+function resetSlackSection(){
+  document.getElementById('slackOtpSection').classList.remove('active');
+  document.getElementById('otpInput').value='';
+  const msg=document.getElementById('slackMsg');
+  if(msg)msg.style.display='none';
 }
 async function startSlackLogin(){
   const u=document.getElementById('userSel').value;
   if(!u){setLoginError('Please select a user');return;}
   setLoginError('');
-  const otpInput=document.getElementById('otpInput');
-  const verifyBtn=document.getElementById('btnSlackVerify');
   const startBtn=document.getElementById('btnSlackStart');
-  const help=document.getElementById('slackHelpText');
-  if(otpInput)otpInput.classList.remove('hidden');
-  if(verifyBtn)verifyBtn.classList.remove('hidden');
-  if(help)help.innerHTML='Request sent. Open Slack DM with @gatey, send <b>otp paid</b>, then paste the code below.';
-  if(startBtn){startBtn.disabled=true;startBtn.textContent='Requesting OTP...';}
-  const payload={ user_id:u, user_name:USERS[u]?.name||u, project:'paid' };
+  if(startBtn){startBtn.disabled=true;startBtn.textContent='Requesting...';}
   const ctrl=new AbortController();
   const t=setTimeout(()=>ctrl.abort(),9000);
   try{
-    const res=await fetch(OTP_API_REQUEST,{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify(payload),
-      signal:ctrl.signal
-    });
+    const res=await fetch(OTP_API_REQUEST,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({}),signal:ctrl.signal});
     let data=null;try{data=await res.json();}catch(_){}
-    if(!res.ok){
-      setLoginError(data?.error||`Slack OTP request failed (${res.status})`);
-      return;
-    }
+    if(!res.ok){showAuthMsg('slackMsg',data?.error||`Slack OTP request failed (${res.status})`,'err');return;}
   }catch(e){
-    // Per UX: move user to OTP step even on timeout/network issues.
     console.warn('Slack OTP request warning',e);
   }finally{
     clearTimeout(t);
     if(startBtn){startBtn.disabled=false;startBtn.textContent='💬 Login via Slack (Gatey)';}
   }
+  document.getElementById('slackOtpSection').classList.add('active');
+  document.getElementById('otpInput').focus();
 }
 async function verifySlackOtp(){
   const u=document.getElementById('userSel').value;
-  const otp=document.getElementById('otpInput')?.value?.trim();
+  const otp=(document.getElementById('otpInput')?.value||'').trim();
   if(!u){setLoginError('Please select a user');return;}
-  if(!otp){setLoginError('Enter OTP code from Slack');return;}
-  const verifyBtn=document.getElementById('btnSlackVerify');
-  if(verifyBtn){verifyBtn.disabled=true;verifyBtn.textContent='Verifying...';}
+  if(!/^\d{6}$/.test(otp))return;
   setLoginError('');
   try{
-    const res=await fetch(OTP_API_VERIFY,{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({code:otp,user_id:u})
-    });
+    const res=await fetch(OTP_API_VERIFY,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code:otp})});
     const data=await res.json().catch(()=>({}));
-    if(!res.ok){
-      setLoginError(data?.detail||data?.error||'OTP verification failed');
-      return;
-    }
+    if(!res.ok){showAuthMsg('slackMsg',data?.detail||data?.error||'Incorrect code','err');return;}
     await doPostAuthLogin(u,'slack');
   }catch(e){
-    setLoginError('OTP verification failed');
-  }finally{
-    if(verifyBtn){verifyBtn.disabled=false;verifyBtn.textContent='Verify OTP & Sign In';}
+    showAuthMsg('slackMsg','Verification failed','err');
   }
 }
 async function startEmailLogin(){
@@ -1133,46 +1126,33 @@ async function startEmailLogin(){
   if(!email){setLoginError('Enter email');return;}
   setLoginError('');
   const startBtn=document.getElementById('btnEmailStart');
-  const otpInput=document.getElementById('emailOtpInput');
-  const verifyBtn=document.getElementById('btnEmailVerify');
   if(startBtn){startBtn.disabled=true;startBtn.textContent='Sending...';}
   try{
-    const res=await fetch(OTP_API_EMAIL_REQUEST,{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({email})
-    });
+    const res=await fetch(OTP_API_EMAIL_REQUEST,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email})});
     const data=await res.json().catch(()=>({}));
-    if(!res.ok){setLoginError(data?.detail||data?.message||data?.error||'Email OTP request failed');return;}
-    if(otpInput)otpInput.classList.remove('hidden');
-    if(verifyBtn)verifyBtn.classList.remove('hidden');
+    if(!res.ok){showAuthMsg('emailMsg',data?.detail||data?.message||data?.error||'Email OTP request failed','err');return;}
+    document.getElementById('emailOtpSection').classList.add('active');
+    document.getElementById('emailOtpInput').focus();
+    showAuthMsg('emailMsg','Code sent! Check your inbox.','ok');
   }catch(_){
-    setLoginError('Email OTP request failed');
+    showAuthMsg('emailMsg','Email OTP request failed','err');
   }finally{
-    if(startBtn){startBtn.disabled=false;startBtn.textContent='Send Email OTP';}
+    if(startBtn){startBtn.disabled=false;startBtn.textContent='Send Code to Email';}
   }
 }
 async function verifyEmailOtp(){
   const u=document.getElementById('userSel').value;
   const otp=(document.getElementById('emailOtpInput')?.value||'').trim();
   if(!u){setLoginError('Please select a user');return;}
-  if(!otp){setLoginError('Enter OTP code from email');return;}
-  const verifyBtn=document.getElementById('btnEmailVerify');
-  if(verifyBtn){verifyBtn.disabled=true;verifyBtn.textContent='Verifying...';}
+  if(!/^\d{6}$/.test(otp))return;
   setLoginError('');
   try{
-    const res=await fetch(OTP_API_EMAIL_VERIFY,{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({code:otp,user_id:u})
-    });
+    const res=await fetch(OTP_API_EMAIL_VERIFY,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code:otp})});
     const data=await res.json().catch(()=>({}));
-    if(!res.ok){setLoginError(data?.detail||data?.error||'Email OTP verification failed');return;}
+    if(!res.ok){showAuthMsg('emailMsg',data?.detail||data?.error||'Incorrect code','err');return;}
     await doPostAuthLogin(u,'email');
   }catch(_){
-    setLoginError('Email OTP verification failed');
-  }finally{
-    if(verifyBtn){verifyBtn.disabled=false;verifyBtn.textContent='Verify OTP & Sign In';}
+    showAuthMsg('emailMsg','Verification failed','err');
   }
 }
 async function doPostAuthLogin(u,authMode='slack'){
@@ -1219,19 +1199,11 @@ function doLogout(){
   document.getElementById('app').style.display='none';
   document.getElementById('loginWrap').style.display='flex';
   document.getElementById('userSel').value='';
-  const otpInput=document.getElementById('otpInput');
-  if(otpInput){otpInput.value='';otpInput.classList.add('hidden');}
-  const vBtn=document.getElementById('btnSlackVerify');
-  if(vBtn){vBtn.classList.add('hidden');vBtn.disabled=false;vBtn.textContent='Verify OTP & Sign In';}
+  resetEmailSection();
+  resetSlackSection();
   const emailInput=document.getElementById('emailInput');
   if(emailInput)emailInput.value='';
-  const emailOtp=document.getElementById('emailOtpInput');
-  if(emailOtp){emailOtp.value='';emailOtp.classList.add('hidden');}
-  const emailVerify=document.getElementById('btnEmailVerify');
-  if(emailVerify){emailVerify.classList.add('hidden');emailVerify.disabled=false;emailVerify.textContent='Verify OTP & Sign In';}
-  const help=document.getElementById('slackHelpText');
-  if(help)help.innerHTML='Default flow: open DM with @gatey, send <b>otp paid</b>, then paste the code here.';
-  toggleEmailLogin(false);
+  switchLoginMethod('email');
   Object.values(charts).forEach(c=>{if(c&&c.destroy)c.destroy();});charts={};
   // Reset filter state on logout
   oppView='all';oppPage=0;oppFilters={country:'',tier:'',stage:'',type:'',sales_manager:'',search:'',tag:''};
@@ -3246,6 +3218,19 @@ async function renderTeam(){
   p.innerHTML=html;
 }
 tryResumeSession();
+
+// Auto-verify OTP inputs when 6 digits entered
+document.getElementById('emailOtpInput').addEventListener('input',function(e){
+  e.target.value=e.target.value.replace(/\D/g,'');
+  if(e.target.value.length===6)verifyEmailOtp();
+});
+document.getElementById('otpInput').addEventListener('input',function(e){
+  e.target.value=e.target.value.replace(/\D/g,'');
+  if(e.target.value.length===6)verifySlackOtp();
+});
+document.getElementById('emailInput').addEventListener('keypress',function(e){
+  if(e.key==='Enter')startEmailLogin();
+});
 </script>
 </body>
 </html>
