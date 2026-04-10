@@ -5,6 +5,7 @@ const supabase = createClient(
   'https://kwftlkfvtglnugxsyjci.supabase.co',
   process.env.SUPABASE_SERVICE_KEY || ANON_KEY
 );
+const DASHBOARD_COUNTRIES = ['United Arab Emirates', 'Saudi Arabia', 'Bahrain', 'Oman', 'Qatar', 'Kuwait', '#N/A'];
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -17,17 +18,69 @@ export default async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
 
   try {
-    // Single-shot fetch is significantly faster than paginated ordered scans.
-    const { data, error } = await supabase
-      .from('dashboard_events')
-      .select('org,name,country,type,event_id,date,year,rev,mkt,share')
-      .range(0, 50000);
-    if (error) {
-      console.error('Events fetch error:', error.message);
-      return res.status(500).json({ error: error.message });
+    const orgParam = typeof req.query?.org === 'string' ? req.query.org.trim() : '';
+
+    // Org-specific lookup: single query with limit
+    if (orgParam) {
+      const requestedLimit = parseInt(req.query?.limit, 10);
+      const limit = Number.isFinite(requestedLimit) && requestedLimit > 0
+        ? Math.min(requestedLimit, 3000)
+        : 2000;
+      const pattern = `%${orgParam.replace(/[-\s]+/g, '%')}%`;
+      const { data, error } = await supabase
+        .from('dashboard_events')
+        .select('id,org,name,country,type,event_id,date,year,rev,mkt,share')
+        .ilike('org', pattern)
+        .order('date', { ascending: false })
+        .order('id', { ascending: false })
+        .limit(limit);
+
+      if (error) {
+        console.error('Events fetch error:', error.message);
+        return res.status(500).json({ error: error.message });
+      }
+
+      const rows = data || [];
+      return res.status(200).json(rows.map(row => ({
+        org: row.org, name: row.name, country: row.country, type: row.type,
+        id: row.event_id, date: row.date, year: row.year,
+        rev: row.rev, mkt: row.mkt, share: row.share
+      })));
     }
 
-    return res.status(200).json((data || []).map(row => ({
+    // Full load: cursor-based pagination to fetch all events
+    const pageSize = 3000;
+    const maxPages = 20;
+    let allRows = [];
+    let lastId = 0;
+
+    for (let i = 0; i < maxPages; i++) {
+      let query = supabase
+        .from('dashboard_events')
+        .select('id,org,name,country,type,event_id,date,year,rev,mkt,share')
+        .in('country', DASHBOARD_COUNTRIES)
+        .order('id', { ascending: true })
+        .limit(pageSize);
+
+      if (lastId > 0) query = query.gt('id', lastId);
+
+      const { data, error } = await query;
+
+      if (error) {
+        console.error('Events fetch error:', error.message);
+        return res.status(500).json({ error: error.message });
+      }
+
+      if (!data || data.length === 0) break;
+      allRows = allRows.concat(data);
+      if (data.length < pageSize) break;
+
+      const nextLastId = Number(data[data.length - 1]?.id || 0);
+      if (!Number.isFinite(nextLastId) || nextLastId <= lastId) break;
+      lastId = nextLastId;
+    }
+
+    return res.status(200).json(allRows.map(row => ({
       org: row.org, name: row.name, country: row.country, type: row.type,
       id: row.event_id, date: row.date, year: row.year,
       rev: row.rev, mkt: row.mkt, share: row.share

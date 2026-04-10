@@ -8,7 +8,6 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 :root {
   /* Platinumlist B2B Brand Palette */
@@ -490,19 +489,21 @@ tr:hover td { background:var(--surface2); }
 </select>
 <div id="slackAuthBox">
   <button class="btn-slack" id="btnSlackStart" onclick="startSlackLogin()">💬 Login via Slack (Gatey)</button>
-  <div class="login-muted" id="slackHelpText">Default flow: open DM with @gatey, send <b>otp</b>, then paste the code here.</div>
+  <div class="login-muted" id="slackHelpText">Default flow: open DM with @gatey, send <b>otp paid</b>, then paste the code here.</div>
   <input class="hidden" id="otpInput" placeholder="Enter OTP code" onkeydown="if(event.key==='Enter')verifySlackOtp()">
   <button class="hidden" id="btnSlackVerify" onclick="verifySlackOtp()">Verify OTP & Sign In</button>
-  <a class="login-link" onclick="togglePasswordLogin(true)">Use password instead</a>
+  <a class="login-link" onclick="toggleEmailLogin(true)">Use email instead</a>
   <div class="auth-guide">
     <h4>Auth guide (UX target)</h4>
-    <img src="https://cleanshot.com/share/c9GVb35P" alt="Slack auth UX reference">
+    <img src="https://b2b-marketing-dashboard.vercel.app/slack-otp-guide.jpg" alt="Slack auth UX reference">
   </div>
 </div>
-<div id="passwordAuthBox" class="hidden">
-  <input type="password" id="pwdInput" placeholder="Password" onkeydown="if(event.key==='Enter')doLogin()">
-  <button id="btnPwdSignIn" onclick="doLogin()">Sign In</button>
-  <a class="login-link" onclick="togglePasswordLogin(false)">Back to Slack login</a>
+<div id="emailAuthBox" class="hidden">
+  <input type="email" id="emailInput" placeholder="you@platinumlist.net">
+  <button id="btnEmailStart" onclick="startEmailLogin()">Send Email OTP</button>
+  <input class="hidden" id="emailOtpInput" placeholder="Enter OTP code" onkeydown="if(event.key==='Enter')verifyEmailOtp()">
+  <button class="hidden" id="btnEmailVerify" onclick="verifyEmailOtp()">Verify OTP & Sign In</button>
+  <a class="login-link" onclick="toggleEmailLogin(false)">Back to Slack login</a>
 </div>
 <div class="login-err" id="loginErr">Invalid password</div>
 </div>
@@ -558,22 +559,27 @@ tr:hover td { background:var(--surface2); }
 <div class="toast-wrap" id="toastWrap"></div>
 
 <script>
-let RAW_ORGS=[], RAW_EVENTS=[];
+let RAW_ORGS=[], RAW_EVENTS=[], RAW_EVENT_REL=[];
 let SCOPED_RAW_EVENTS=[];
+let EVENT_REL_BY_ID={};
+let SALES_MANAGERS=[];
 let dataLoaded=false;
 async function loadData(){
   const base=window.location.origin;
   try{
     const statusEl=document.getElementById('plStatus');
     if(statusEl)statusEl.textContent='Loading organisers & events from Supabase…';
-    const [orgsRes,eventsRes]=await Promise.all([
+    const [orgsRes,eventsRes,relRes]=await Promise.all([
       fetch(base+'/api/orgs'),
-      fetch(base+'/api/events')
+      fetch(base+'/api/events'),
+      fetch(base+'/api/event-relations')
     ]);
     if(statusEl)statusEl.textContent='Processing '+((await orgsRes.clone().json()).length||'…')+' organisers…';
     if(!orgsRes.ok||!eventsRes.ok)throw new Error('API error');
     RAW_ORGS=await orgsRes.json();
     RAW_EVENTS=await eventsRes.json();
+    RAW_EVENT_REL=relRes.ok?await relRes.json():[];
+    attachSalesManagers();
     dataLoaded=true;
   }catch(e){
     console.error('Failed to load data:',e);
@@ -581,12 +587,84 @@ async function loadData(){
     dataLoaded=false;
   }
 }
-const PWD='salesdash';
-const SB_AUTH_URL='https://kwftlkfvtglnugxsyjci.supabase.co';
-const SB_AUTH_ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt3ZnRsa2Z2dGdsbnVneHN5amNpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDc2NDAxODUsImV4cCI6MjA2MzIxNjE4NX0.9Cn1xahmF8q6pbbWQHNyQSc9fZkVvJaqTzMRZCtmb9E';
-const SLACK_OTP_FN='b2b-slack-otp-v2';
-const sbAuthClient=(window.supabase&&window.supabase.createClient)?window.supabase.createClient(SB_AUTH_URL,SB_AUTH_ANON):null;
-let slackOtpEmail='';
+function attachSalesManagers(){
+  const normText=(v)=>String(v??'').trim();
+  const normOrgKey=(v)=>normOrgName(v);
+  const topKey=(dist)=>Object.entries(dist||{}).sort((a,b)=>b[1]-a[1])[0]?.[0]||null;
+  EVENT_REL_BY_ID={};
+  const relByOrgNorm={};
+  const relOrgKeys=[];
+  (RAW_EVENT_REL||[]).forEach(r=>{
+    const id=normText(r?.event_id);
+    const sm=normText(r?.sales_manager);
+    const relOrg=normText(r?.event_organiser);
+    if(!id)return;
+    // Keep latest non-empty mapping.
+    const prev=EVENT_REL_BY_ID[id];
+    if(!prev||((r?.updated_at||'')>(prev?.updated_at||''))){
+      EVENT_REL_BY_ID[id]=r;
+    }
+    if(sm&&relOrg){
+      const k=normOrgKey(relOrg);
+      if(k){
+        if(!relByOrgNorm[k])relByOrgNorm[k]={};
+        relByOrgNorm[k][sm]=(relByOrgNorm[k][sm]||0)+1;
+        relOrgKeys.push(k);
+      }
+    }
+  });
+  const fallbackSmByOrg=(orgName)=>{
+    const key=normOrgKey(orgName);
+    if(!key)return null;
+    const exact=topKey(relByOrgNorm[key]);
+    if(exact)return exact;
+    // loose contains fallback for minor naming differences
+    let best=null,bestScore=0;
+    for(const k of relOrgKeys){
+      if(!k)continue;
+      if(k.includes(key)||key.includes(k)){
+        const cand=topKey(relByOrgNorm[k]);
+        const score=(cand&&relByOrgNorm[k]?.[cand])||0;
+        if(cand&&score>bestScore){best=cand;bestScore=score;}
+      }
+    }
+    return best;
+  };
+  RAW_EVENTS=(RAW_EVENTS||[]).map(e=>{
+    const rel=EVENT_REL_BY_ID[(e.id??'').toString()]||{};
+    const fallbackSm=fallbackSmByOrg(e.org);
+    return {
+      ...e,
+      sales_manager:normText(rel.sales_manager)||fallbackSm||null,
+      event_manager:normText(rel.event_manager)||null,
+      event_organiser_rel:normText(rel.event_organiser)||null
+    };
+  });
+
+  const byOrg={};
+  RAW_EVENTS.forEach(e=>{
+    const org=normOrgKey(e.org);
+    const sm=e.sales_manager;
+    if(!org||!sm)return;
+    if(!byOrg[org])byOrg[org]={};
+    byOrg[org][sm]=(byOrg[org][sm]||0)+1;
+  });
+  RAW_ORGS=(RAW_ORGS||[]).map(o=>{
+    const dist=byOrg[normOrgKey(o.organizer)]||{};
+    const top=topKey(dist)||fallbackSmByOrg(o.organizer);
+    return {...o,sales_manager:top||null};
+  });
+  SALES_MANAGERS=[...new Set([...
+    RAW_EVENTS.map(e=>e.sales_manager),
+    RAW_ORGS.map(o=>o.sales_manager)
+  ].filter(Boolean).map(normText))].sort((a,b)=>String(a).localeCompare(String(b)));
+}
+const OTP_API_REQUEST='/api/otp/request';
+const OTP_API_VERIFY='/api/otp/verify';
+const OTP_API_SESSION='/api/otp/session';
+const OTP_API_LOGOUT='/api/otp/logout';
+const OTP_API_EMAIL_REQUEST='/api/otp/email-request';
+const OTP_API_EMAIL_VERIFY='/api/otp/email-verify';
 const USERS={alex:{name:'Alex',filter:null},taha:{name:'Taha',filter:null},kamila:{name:'Kamilla',filter:'United Arab Emirates',mode:'only'},mohammed:{name:'Mohammed',countries:['Saudi Arabia','Qatar','Oman','Bahrain'],mode:'list'}};
 const GCC_COUNTRIES=['United Arab Emirates','Saudi Arabia','Bahrain','Oman','Qatar','Kuwait'];
 const COUNTRY_MARKETING_OVERRIDE={
@@ -635,8 +713,8 @@ async function logOrgAction(org,action,note){
     if(res.ok){const a=await res.json();ORG_ACTIONS.unshift(a);ORG_ACTIONS_SET.add(org);renderOppCards();showToast('✅','Logged',`"${action||'Worked on it'}" for ${org}`);}
   }catch(e){console.error('Action log failed',e);}
 }
-let orgListPage=0, orgListSort={col:'tt',asc:false}, orgListSearch='';
-let evtListPage=0, evtListSort={col:'date',asc:false}, evtListSearch='';
+let orgListPage=0, orgListSort={col:'tt',asc:false}, orgListSearch='', orgListSalesManager='';
+let evtListPage=0, evtListSort={col:'date',asc:false}, evtListSearch='', evtListSalesManager='';
 let orgListView='active_last_month', evtListView='active_last_month';
 let evtHidePast=false;
 
@@ -779,21 +857,32 @@ function buildMonthlyCache(){
     const mk=monthKeyFromRawDate(e.date);
     if(!mk)return;
     if(!isValidRevenuePoint(e.rev,e.mkt))return;
-    const org=e.org||'—';
+    const org=normOrgName(e.org)||'—';
     if(!ORG_MONTHLY[org])ORG_MONTHLY[org]={};
     if(!ORG_MONTHLY[org][mk])ORG_MONTHLY[org][mk]={tick:0,mkt:0};
     ORG_MONTHLY[org][mk].tick+=(parseFloat(e.rev)||0);
     ORG_MONTHLY[org][mk].mkt+=(parseFloat(e.mkt)||0);
   });
-  // Default should be previous calendar month (not "latest data month - 1")
-  // to keep all tabs aligned to the same reporting period.
-  const targetLastMonth=shiftMonthKey(currentMonthKey(),-1)||currentMonthKey();
-  REPORT_MONTH_KEY=targetLastMonth;
+  const prevCalendarMonth=shiftMonthKey(currentMonthKey(),-1)||currentMonthKey();
+  let latestPaidMonth='';
+  let latestTicketMonth='';
+  EVENTS.forEach(e=>{
+    if((e.type||'').toLowerCase()!=='event')return;
+    const mk=monthKeyFromRawDate(e.date);
+    if(!mk||mk>prevCalendarMonth)return;
+    if(!isValidRevenuePoint(e.rev,e.mkt))return;
+    const rev=parseFloat(e.rev)||0;
+    const mkt=parseFloat(e.mkt)||0;
+    if(rev>0&&mk>latestTicketMonth)latestTicketMonth=mk;
+    if(mkt>0&&mk>latestPaidMonth)latestPaidMonth=mk;
+  });
+  REPORT_MONTH_KEY=latestPaidMonth||latestTicketMonth||prevCalendarMonth;
 }
 function orgMonthMetrics(org){
-  const cur=ORG_MONTHLY?.[org]?.[REPORT_MONTH_KEY]||{tick:0,mkt:0};
+  const orgKey=normOrgName(org);
+  const cur=ORG_MONTHLY?.[orgKey]?.[REPORT_MONTH_KEY]||ORG_MONTHLY?.[org]?.[REPORT_MONTH_KEY]||{tick:0,mkt:0};
   const lyKey=shiftMonthKey(REPORT_MONTH_KEY,-12);
-  const ly=ORG_MONTHLY?.[org]?.[lyKey]||{tick:0,mkt:0};
+  const ly=ORG_MONTHLY?.[orgKey]?.[lyKey]||ORG_MONTHLY?.[org]?.[lyKey]||{tick:0,mkt:0};
   const tyoy=ly.tick>0?((cur.tick-ly.tick)/ly.tick*100):null;
   const myoy=ly.mkt>0?((cur.mkt-ly.mkt)/ly.mkt*100):null;
   const share=cur.tick>0?(cur.mkt/cur.tick*100):0;
@@ -812,7 +901,7 @@ function isUntappedOrg(o){
 }
 function isDroppedOrg(o){
   const mm=orgMonthMetrics(o.organizer);
-  const lyMkt=(ORG_MONTHLY?.[o.organizer]?.[mm.lyKey]?.mkt)||0;
+  const lyMkt=(ORG_MONTHLY?.[normOrgName(o.organizer)]?.[mm.lyKey]?.mkt)||(ORG_MONTHLY?.[o.organizer]?.[mm.lyKey]?.mkt)||0;
   return (lyMkt>0&&mm.mkt<=0)||(mm.myoy!=null&&mm.myoy<=-30);
 }
 function isGrowingOrg(o){
@@ -855,9 +944,14 @@ function convertByCountry(v,country,target='AED'){
 /* LOGIN */
 const AUTH_COOKIE='pl_dash_auth';
 const AUTH_TTL_MIN=30;
+const AUTH_MODE_COOKIE='pl_dash_auth_mode';
 function setAuthCookie(uid){
   const expires=new Date(Date.now()+AUTH_TTL_MIN*60*1000).toUTCString();
   document.cookie=`${AUTH_COOKIE}=${encodeURIComponent(uid)}; expires=${expires}; path=/; SameSite=Lax`;
+}
+function setAuthModeCookie(mode){
+  const expires=new Date(Date.now()+AUTH_TTL_MIN*60*1000).toUTCString();
+  document.cookie=`${AUTH_MODE_COOKIE}=${encodeURIComponent(mode||'')}; expires=${expires}; path=/; SameSite=Lax`;
 }
 function getAuthCookie(){
   const parts=(document.cookie||'').split(';').map(s=>s.trim());
@@ -867,8 +961,15 @@ function getAuthCookie(){
   const uid=decodeURIComponent(m.slice(pref.length));
   return USERS[uid]?uid:null;
 }
+function getAuthModeCookie(){
+  const parts=(document.cookie||'').split(';').map(s=>s.trim());
+  const pref=`${AUTH_MODE_COOKIE}=`;
+  const m=parts.find(p=>p.startsWith(pref));
+  return m?decodeURIComponent(m.slice(pref.length)):'';
+}
 function clearAuthCookie(){
   document.cookie=`${AUTH_COOKIE}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; SameSite=Lax`;
+  document.cookie=`${AUTH_MODE_COOKIE}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; SameSite=Lax`;
 }
 
 /* ===== PRELOADER LOGIC ===== */
@@ -936,18 +1037,19 @@ function setLoginError(msg){
   errEl.textContent=msg||'';
   errEl.style.display=msg?'block':'none';
 }
-function togglePasswordLogin(showPwd){
+function toggleEmailLogin(showEmail){
   const pwd=document.getElementById('passwordAuthBox');
   const slack=document.getElementById('slackAuthBox');
-  if(!pwd||!slack)return;
-  pwd.classList.toggle('hidden',!showPwd);
-  slack.classList.toggle('hidden',!!showPwd);
+  const email=document.getElementById('emailAuthBox');
+  if(!pwd||!slack||!email)return;
+  email.classList.toggle('hidden',!showEmail);
+  slack.classList.toggle('hidden',!!showEmail);
+  pwd.classList.add('hidden');
   setLoginError('');
 }
 async function startSlackLogin(){
   const u=document.getElementById('userSel').value;
   if(!u){setLoginError('Please select a user');return;}
-  if(!sbAuthClient){setLoginError('Supabase auth client is not available');return;}
   setLoginError('');
   const otpInput=document.getElementById('otpInput');
   const verifyBtn=document.getElementById('btnSlackVerify');
@@ -955,20 +1057,19 @@ async function startSlackLogin(){
   const help=document.getElementById('slackHelpText');
   if(otpInput)otpInput.classList.remove('hidden');
   if(verifyBtn)verifyBtn.classList.remove('hidden');
-  if(help)help.innerHTML='Request sent. Open Slack DM with @gatey, send <b>otp</b>, then paste the code below.';
+  if(help)help.innerHTML='Request sent. Open Slack DM with @gatey, send <b>otp paid</b>, then paste the code below.';
   if(startBtn){startBtn.disabled=true;startBtn.textContent='Requesting OTP...';}
-  const payload={ user_id:u, user_name:USERS[u]?.name||u };
+  const payload={ user_id:u, user_name:USERS[u]?.name||u, project:'paid' };
   const ctrl=new AbortController();
   const t=setTimeout(()=>ctrl.abort(),9000);
   try{
-    const res=await fetch(`${SB_AUTH_URL}/functions/v1/${SLACK_OTP_FN}`,{
+    const res=await fetch(OTP_API_REQUEST,{
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify(payload),
       signal:ctrl.signal
     });
     let data=null;try{data=await res.json();}catch(_){}
-    if(data?.email)slackOtpEmail=data.email;
     if(!res.ok){
       setLoginError(data?.error||`Slack OTP request failed (${res.status})`);
       return;
@@ -986,57 +1087,93 @@ async function verifySlackOtp(){
   const otp=document.getElementById('otpInput')?.value?.trim();
   if(!u){setLoginError('Please select a user');return;}
   if(!otp){setLoginError('Enter OTP code from Slack');return;}
-  if(!sbAuthClient){setLoginError('Supabase auth client is not available');return;}
-  if(!slackOtpEmail){
-    setLoginError('OTP email context is missing. Ensure SLACK_DEFAULT_EMAIL is set in function env or function returns email.');
-    return;
-  }
   const verifyBtn=document.getElementById('btnSlackVerify');
   if(verifyBtn){verifyBtn.disabled=true;verifyBtn.textContent='Verifying...';}
   setLoginError('');
   try{
-    const { error } = await sbAuthClient.auth.verifyOtp({
-      email: slackOtpEmail,
-      token: otp,
-      type: 'email'
+    const res=await fetch(OTP_API_VERIFY,{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({code:otp,user_id:u})
     });
-    if(error){setLoginError(error.message||'OTP verification failed');return;}
-    await doPostAuthLogin(u);
+    const data=await res.json().catch(()=>({}));
+    if(!res.ok){
+      setLoginError(data?.detail||data?.error||'OTP verification failed');
+      return;
+    }
+    await doPostAuthLogin(u,'slack');
   }catch(e){
     setLoginError('OTP verification failed');
   }finally{
     if(verifyBtn){verifyBtn.disabled=false;verifyBtn.textContent='Verify OTP & Sign In';}
   }
 }
-async function doPostAuthLogin(u){
+async function startEmailLogin(){
+  const email=(document.getElementById('emailInput')?.value||'').trim().toLowerCase();
+  if(!email){setLoginError('Enter email');return;}
+  setLoginError('');
+  const startBtn=document.getElementById('btnEmailStart');
+  const otpInput=document.getElementById('emailOtpInput');
+  const verifyBtn=document.getElementById('btnEmailVerify');
+  if(startBtn){startBtn.disabled=true;startBtn.textContent='Sending...';}
+  try{
+    const res=await fetch(OTP_API_EMAIL_REQUEST,{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({email})
+    });
+    const data=await res.json().catch(()=>({}));
+    if(!res.ok){setLoginError(data?.detail||data?.message||data?.error||'Email OTP request failed');return;}
+    if(otpInput)otpInput.classList.remove('hidden');
+    if(verifyBtn)verifyBtn.classList.remove('hidden');
+  }catch(_){
+    setLoginError('Email OTP request failed');
+  }finally{
+    if(startBtn){startBtn.disabled=false;startBtn.textContent='Send Email OTP';}
+  }
+}
+async function verifyEmailOtp(){
+  const u=document.getElementById('userSel').value;
+  const otp=(document.getElementById('emailOtpInput')?.value||'').trim();
+  if(!u){setLoginError('Please select a user');return;}
+  if(!otp){setLoginError('Enter OTP code from email');return;}
+  const verifyBtn=document.getElementById('btnEmailVerify');
+  if(verifyBtn){verifyBtn.disabled=true;verifyBtn.textContent='Verifying...';}
+  setLoginError('');
+  try{
+    const res=await fetch(OTP_API_EMAIL_VERIFY,{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({code:otp,user_id:u})
+    });
+    const data=await res.json().catch(()=>({}));
+    if(!res.ok){setLoginError(data?.detail||data?.error||'Email OTP verification failed');return;}
+    await doPostAuthLogin(u,'email');
+  }catch(_){
+    setLoginError('Email OTP verification failed');
+  }finally{
+    if(verifyBtn){verifyBtn.disabled=false;verifyBtn.textContent='Verify OTP & Sign In';}
+  }
+}
+async function doPostAuthLogin(u,authMode='slack'){
   if(!dataLoaded){showPreloader();await loadData();}
   await Promise.all([loadActions(),loadVisits()]);
   hidePreloader();
   if(!dataLoaded){setLoginError('Failed to load data');return;}
-  completeLogin(u,true);
+  completeLogin(u,true,authMode);
 }
 
-async function doLogin(){
-  const u=document.getElementById('userSel').value;
-  const p=document.getElementById('pwdInput').value;
-  if(!u){setLoginError('Please select a user');return;}
-  if(p!==PWD){setLoginError('Invalid password');return;}
-  setLoginError('');
-  const btn=document.getElementById('btnPwdSignIn');
-  btn.textContent='Loading...';btn.disabled=true;
-  await doPostAuthLogin(u);
-  btn.textContent='Sign In';btn.disabled=false;
-}
 
-function completeLogin(u,track=true){
+function completeLogin(u,track=true,authMode='slack'){
   if(!USERS[u])return;
   curUser=USERS[u];curUser.id=u;
   setAuthCookie(u);
+  setAuthModeCookie(authMode);
   sess={tabs:new Set(),filters:0,searches:0,exports:0,orgsViewed:0,loginTime:new Date(),actions:[]};
   userAch=new Set();
   /* v2.9 — clear stale URL params + filters on fresh login */
   history.replaceState(null,'',location.pathname);
-  oppView='all';oppPage=0;oppFilters={country:'',tier:'',stage:'',type:'',search:'',tag:''};
+  oppView='all';oppPage=0;oppFilters={country:'',tier:'',stage:'',type:'',sales_manager:'',search:'',tag:''};
   bulkSelected.clear();try{localStorage.removeItem('plDashFilters');}catch(e){}
   initData();
   /* Countries RAW tab — only for Alex */
@@ -1061,23 +1198,28 @@ function completeLogin(u,track=true){
 function doLogout(){
   document.getElementById('app').style.display='none';
   document.getElementById('loginWrap').style.display='flex';
-  document.getElementById('pwdInput').value='';
   document.getElementById('userSel').value='';
   const otpInput=document.getElementById('otpInput');
   if(otpInput){otpInput.value='';otpInput.classList.add('hidden');}
   const vBtn=document.getElementById('btnSlackVerify');
   if(vBtn){vBtn.classList.add('hidden');vBtn.disabled=false;vBtn.textContent='Verify OTP & Sign In';}
+  const emailInput=document.getElementById('emailInput');
+  if(emailInput)emailInput.value='';
+  const emailOtp=document.getElementById('emailOtpInput');
+  if(emailOtp){emailOtp.value='';emailOtp.classList.add('hidden');}
+  const emailVerify=document.getElementById('btnEmailVerify');
+  if(emailVerify){emailVerify.classList.add('hidden');emailVerify.disabled=false;emailVerify.textContent='Verify OTP & Sign In';}
   const help=document.getElementById('slackHelpText');
-  if(help)help.innerHTML='Default flow: open DM with @gatey, send <b>otp</b>, then paste the code here.';
-  slackOtpEmail='';
-  togglePasswordLogin(false);
+  if(help)help.innerHTML='Default flow: open DM with @gatey, send <b>otp paid</b>, then paste the code here.';
+  toggleEmailLogin(false);
   Object.values(charts).forEach(c=>{if(c&&c.destroy)c.destroy();});charts={};
   // Reset filter state on logout
-  oppView='all';oppPage=0;oppFilters={country:'',tier:'',stage:'',type:'',search:'',tag:''};
+  oppView='all';oppPage=0;oppFilters={country:'',tier:'',stage:'',type:'',sales_manager:'',search:'',tag:''};
   bulkSelected.clear();
   try{localStorage.removeItem('plDashFilters');}catch(e){}
   history.replaceState(null,'',location.pathname);
   clearAuthCookie();
+  fetch(OTP_API_LOGOUT,{method:'POST'}).catch(()=>{});
   curUser=null;
 }
 function isAttractionRow(x){
@@ -1097,13 +1239,27 @@ function toggleAttractions(checked){
 async function tryResumeSession(){
   const uid=getAuthCookie();
   if(!uid||curUser)return;
+  const mode=getAuthModeCookie()||'slack';
+  if(mode==='slack'){
+    try{
+      const sRes=await fetch(OTP_API_SESSION,{method:'GET'});
+      const sData=await sRes.json().catch(()=>({authenticated:false}));
+      if(!sData?.authenticated){
+        clearAuthCookie();
+        return;
+      }
+    }catch(_){
+      clearAuthCookie();
+      return;
+    }
+  }
   const errEl=document.getElementById('loginErr');
   if(errEl)errEl.style.display='none';
   if(!dataLoaded){showPreloader();await loadData();await Promise.all([loadActions(),loadVisits()]);hidePreloader();}
   if(!dataLoaded)return;
   const sel=document.getElementById('userSel');
   if(sel)sel.value=uid;
-  completeLogin(uid,false);
+  completeLogin(uid,false,mode);
 }
 
 function initData(){
@@ -1168,6 +1324,12 @@ function normStr(s){
     .replace(/\s+/g,' ')
     .trim();
 }
+function normOrgName(v){
+  return normStr(v)
+    .replace(/\b(l l c|llc|ltd|limited|inc|co|company|w l l|wll|fz|fzco|fzc|pjsc|l l p)\b/g,' ')
+    .replace(/\s+/g,' ')
+    .trim();
+}
 function canonicalUserName(v){
   const s=(v||'').toString().trim().toLowerCase();
   if(!s)return '';
@@ -1180,7 +1342,7 @@ function canonicalUserName(v){
 function drillDown(view,searchTerm){
   oppView=view||'all';
   oppPage=0;
-  oppFilters={country:'',tier:'',stage:'',type:'',search:'',tag:''};
+  oppFilters={country:'',tier:'',stage:'',type:'',sales_manager:'',search:'',tag:''};
   if(searchTerm){
     const term=normStr(searchTerm);
     const exact=ORGS.find(o=>normStr(o.organizer)===term);
@@ -1202,7 +1364,7 @@ function drillDown(view,searchTerm){
 function drillDownCountry(country,view){
   oppView=view||'all';
   oppPage=0;
-  oppFilters={country:country||'',tier:'',stage:'',type:'',search:'',tag:''};
+  oppFilters={country:country||'',tier:'',stage:'',type:'',sales_manager:'',search:'',tag:''};
   switchTab('opportunities');
 }
 function getEvtStatus(orgName,evtId){
@@ -1214,12 +1376,34 @@ async function setEvtStatus(orgName,evtId,evtName,status){
   await logOrgAction(orgName,'evt_'+status,'evt:'+evtId+':'+evtName);
   // Refresh the modal
   document.querySelector('.org-modal-overlay')?.remove();
-  showOrgEvents(orgName);
+  await showOrgEvents(orgName);
 }
-function showOrgEvents(orgName){
-  const orgEvts=EVENTS.filter(e=>e.org===orgName).sort((a,b)=>(b.id||0)-(a.id||0));
-  const org=ORGS.find(o=>o.organizer===orgName);
-  const orgNotes=ORG_ACTIONS.filter(a=>a.org===orgName&&a.note);
+function inCurrentUserScope(row){
+  if(!curUser)return true;
+  if(curUser.mode==='list')return (curUser.countries||[]).includes(row.country);
+  if(!curUser.filter)return true;
+  return curUser.mode==='only' ? row.country===curUser.filter : row.country!==curUser.filter;
+}
+async function fetchOrgEventsFallback(orgName){
+  try{
+    const url=window.location.origin+'/api/events?org='+encodeURIComponent(orgName)+'&limit=2000';
+    const res=await fetch(url);
+    if(!res.ok)return [];
+    const rows=await res.json();
+    return (rows||[]).filter(e=>inCurrentUserScope(e)&&!(hideAttractions&&isAttractionRow(e)));
+  }catch(_){
+    return [];
+  }
+}
+async function showOrgEvents(orgName){
+  const orgKey=normOrgName(orgName);
+  let orgEvts=EVENTS.filter(e=>normOrgName(e.org)===orgKey).sort((a,b)=>(b.id||0)-(a.id||0));
+  if(orgEvts.length===0){
+    const remoteRows=await fetchOrgEventsFallback(orgName);
+    orgEvts=remoteRows.filter(e=>normOrgName(e.org)===orgKey).sort((a,b)=>(b.id||0)-(a.id||0));
+  }
+  const org=ORGS.find(o=>normOrgName(o.organizer)===orgKey)||ORGS.find(o=>o.organizer===orgName);
+  const orgNotes=ORG_ACTIONS.filter(a=>a.note&&normOrgName(a.org)===orgKey);
   const overlay=document.createElement('div');
   overlay.className='org-modal-overlay';
   overlay.onclick=e=>{if(e.target===overlay)overlay.remove();};
@@ -1285,7 +1469,7 @@ function showOrgEvents(orgName){
   overlay.innerHTML=`<div class="org-modal">
     <div class="org-modal-head">
       <div><h2>${orgName}<span class="org-evt-count">${orgEvts.length} events</span></h2>
-      ${org?`<div style="margin-top:6px;font-size:12px;color:var(--text2)">${org.country} · ${org.tier} · ${org.lc} · Mkt Potential: <b style="color:var(--green)">${fmtCur(org.rp)}</b></div>`:''}</div>
+      ${org?`<div style="margin-top:6px;font-size:12px;color:var(--text2)">${org.country} · ${org.tier} · ${org.lc} · ${org.sales_manager?('👤 '+org.sales_manager+' · '):''}Mkt Potential: <b style="color:var(--green)">${fmtCur(org.rp)}</b></div>`:''}</div>
       <button class="org-modal-close" onclick="this.closest('.org-modal-overlay').remove()">✕</button>
     </div>
     <div class="org-modal-body">
@@ -1346,8 +1530,18 @@ function renderOverview(){
   const dataMaxKey=maxDataMonthKey(RAW_EVENTS,true);
   const monthlyByCountry=buildCountryMonthlyBase(RAW_EVENTS,countrySet,dataMaxKey);
   const allMonthKeys=[...new Set(Object.keys(monthlyByCountry).map(k=>k.split('||')[1]))].sort();
-  const latestMonthKey=[...allMonthKeys].reverse().find(mk=>scopeCountries.some(c=>{const m=getCountryMonthMetrics(c,mk,monthlyByCountry);return m.mkt>0||m.rev>0;}))||allMonthKeys[allMonthKeys.length-1]||null;
-  const reportMonthKey=(OVERVIEW_MONTH_KEY&&allMonthKeys.includes(OVERVIEW_MONTH_KEY))?OVERVIEW_MONTH_KEY:latestMonthKey;
+  const lastClosedMonthKey=shiftMonthKey(currentMonthKey(),-1)||currentMonthKey();
+  const closedMonthKeys=allMonthKeys.filter(mk=>mk<=lastClosedMonthKey);
+  const monthKeysForDefault=closedMonthKeys.length?closedMonthKeys:allMonthKeys;
+  // Default to the latest month that has meaningful paid marketing revenue.
+  // Use >= 1 to ignore tiny float noise that can otherwise push month selection.
+  const hasPaidMktForMonth=(mk)=>scopeCountries.some(c=>{
+    const m=getCountryMonthMetrics(c,mk,monthlyByCountry);
+    return (parseFloat(m.mkt)||0)>=1;
+  });
+  const latestMonthKey=[...monthKeysForDefault].reverse().find(hasPaidMktForMonth)||monthKeysForDefault[monthKeysForDefault.length-1]||null;
+  const requestedMonthKey=(OVERVIEW_MONTH_KEY&&allMonthKeys.includes(OVERVIEW_MONTH_KEY))?OVERVIEW_MONTH_KEY:'';
+  const reportMonthKey=(requestedMonthKey&&hasPaidMktForMonth(requestedMonthKey))?requestedMonthKey:latestMonthKey;
   const defaultCompareKey=shiftMonthKey(reportMonthKey,-12);
   const reportCmpKey=(OVERVIEW_COMPARE_KEY&&allMonthKeys.includes(OVERVIEW_COMPARE_KEY)&&OVERVIEW_COMPARE_KEY!==reportMonthKey)?OVERVIEW_COMPARE_KEY:defaultCompareKey;
   const isYoYCompare=reportCmpKey===defaultCompareKey;
@@ -1456,7 +1650,7 @@ function renderOverview(){
         const detail=o.nba.split('—').slice(1).join('—').trim();
         const icon=aqIcons[action]||'⚡';
         const cls=o.sr==='hot'?'aq-hot':o.rs>60?'aq-warm':'aq-growth';
-        return`<div class="aq-item ${cls}" onclick="drillDown('all','${o.organizer.replace(/'/g,"\\'")}')" title="Click to view in Opportunities"><div class="aq-icon">${icon}</div><div class="aq-body"><div class="aq-org">${o.organizer}</div><div class="aq-detail">${action}: ${detail} · ${o.country} · ${o.tier}</div></div><div class="aq-metric"><div class="aq-val" style="color:var(--green)">${fmtCurOv(convertByCountry((o.rp||0),o.country,overviewCurrency))}</div><div class="aq-label">mkt potential</div></div></div>`;
+        return`<div class="aq-item ${cls}" onclick="drillDown('all','${o.organizer.replace(/'/g,"\\'")}')" title="Click to view in Opportunities"><div class="aq-icon">${icon}</div><div class="aq-body"><div class="aq-org">${o.organizer}</div><div class="aq-detail">${action}: ${detail} · ${o.country} · ${o.tier}${o.sales_manager?(' · 👤 '+o.sales_manager):''}</div></div><div class="aq-metric"><div class="aq-val" style="color:var(--green)">${fmtCurOv(convertByCountry((o.rp||0),o.country,overviewCurrency))}</div><div class="aq-label">mkt potential</div></div></div>`;
       }).join('')}
     </div>
   </div>
@@ -1643,13 +1837,14 @@ function renderPipeline(){
 }
 
 /* ===== OPPORTUNITIES TAB ===== */
-let oppPage=0,oppView='all',oppFilters={country:'',tier:'',stage:'',type:'',search:'',tag:''};
+let oppPage=0,oppView='all',oppFilters={country:'',tier:'',stage:'',type:'',sales_manager:'',search:'',tag:''};
 function renderOpps(){
   const p=document.getElementById('pane-opportunities');
-  const countries=[...new Set(ORGS.map(o=>o.country))].sort();
-  const tiers=[...new Set(ORGS.map(o=>o.tier))].sort();
-  const stages=[...new Set(ORGS.map(o=>o.stage))].sort();
+  const countries=[...new Set(ORGS.map(o=>o.country))].filter(Boolean).sort();
+  const tiers=[...new Set(ORGS.map(o=>o.tier))].filter(Boolean).sort();
+  const stages=[...new Set(ORGS.map(o=>o.stage))].filter(Boolean).sort();
   const types=[...new Set(ORGS.map(o=>o.type))].filter(Boolean).sort();
+  const salesManagers=[...new Set(ORGS.map(o=>o.sales_manager))].filter(Boolean).sort((a,b)=>String(a).localeCompare(String(b)));
 
   // Tag counts for chips
   const tagCounts={};
@@ -1683,6 +1878,7 @@ function renderOpps(){
     <select onchange="oppFilters.tier=this.value;oppPage=0;sess.filters++;logAction('filter_tier',this.value,'opportunities');renderOppCards()"><option value="">All Tiers</option>${tiers.map(t=>`<option value="${t}">${t}</option>`).join('')}</select>
     <select onchange="oppFilters.stage=this.value;oppPage=0;sess.filters++;logAction('filter_stage',this.value,'opportunities');renderOppCards()"><option value="">All Stages</option>${stages.map(s=>`<option value="${s}">${s}</option>`).join('')}</select>
     <select onchange="oppFilters.type=this.value;oppPage=0;sess.filters++;logAction('filter_type',this.value,'opportunities');renderOppCards()"><option value="">All Types</option>${types.map(t=>`<option value="${t}">${t}</option>`).join('')}</select>
+    <select onchange="oppFilters.sales_manager=this.value;oppPage=0;sess.filters++;logAction('filter_sales_manager',this.value,'opportunities');renderOppCards()"><option value="">All Sales Managers</option>${salesManagers.map(s=>`<option value="${s}" ${oppFilters.sales_manager===s?'selected':''}>${s}</option>`).join('')}</select>
     <input id="oppSearchInput" placeholder="Search organisers..." value="${oppFilters.search||''}" oninput="oppFilters.search=this.value;oppPage=0;sess.searches++;renderOppCards()" onchange="logAction('search',this.value,'opportunities')">
     ${oppFilters.search?`<button class="btn-clear-filter" onclick="oppFilters.search='';oppView='all';oppPage=0;renderOpps()" title="Clear search filter">✕ Clear</button>`:''}
   </div>
@@ -1718,9 +1914,10 @@ function getFilteredOrgs(){
   if(oppFilters.tier)list=list.filter(o=>o.tier===oppFilters.tier);
   if(oppFilters.stage)list=list.filter(o=>o.stage===oppFilters.stage);
   if(oppFilters.type)list=list.filter(o=>o.type===oppFilters.type);
+  if(oppFilters.sales_manager)list=list.filter(o=>(o.sales_manager||'')===oppFilters.sales_manager);
   if(oppFilters.search){
     const q=normStr(oppFilters.search);
-    list=list.filter(o=>normStr(o.organizer).includes(q));
+    list=list.filter(o=>normStr(o.organizer).includes(q)||normStr(o.sales_manager||'').includes(q));
   }
   if(oppFilters.tag)list=list.filter(o=>hasOrgTag(o,oppFilters.tag));
 
@@ -1757,6 +1954,7 @@ function renderOppCards(){
         <span class="meta-pill">${o.tier}</span>
         <span class="meta-pill">${o.stage}</span>
         ${o.type?`<span class="meta-pill">${o.type}</span>`:''}
+        ${o.sales_manager?`<span class="meta-pill">👤 ${o.sales_manager}</span>`:''}
         <span class="meta-pill">${o.lc}</span>
       </div>
       <div class="card-metrics">
@@ -1784,7 +1982,7 @@ function renderOppCards(){
       <h3 style="margin-bottom:8px">No organisers found</h3>
       <div style="font-size:13px;color:var(--text2);margin-bottom:10px">Try clearing search/filters or switch to <b>All</b> view.</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <button class="btn-export" onclick="oppView='all';oppFilters={country:'',tier:'',stage:'',type:'',search:'',tag:''};oppPage=0;renderOpps()">Reset Filters</button>
+        <button class="btn-export" onclick="oppView='all';oppFilters={country:'',tier:'',stage:'',type:'',sales_manager:'',search:'',tag:''};oppPage=0;renderOpps()">Reset Filters</button>
       </div>
     </div>`;
   }
@@ -1844,7 +2042,7 @@ function renderQuickQueue(filteredList){
     }).slice(0,20);
   cnt.textContent=queue.length?`${queue.length} in focus`:'No items';
   if(queue.length===0){el.innerHTML='<div style="color:var(--text3);font-size:12px;padding:8px">No priority items for current filters.</div>';return;}
-  el.innerHTML=queue.map(o=>`<div class="qq-row"><div class="qq-org" title="${o.organizer}">${o.organizer}</div><div class="qq-meta">${o.country} · PS ${o.ps} · ${fmtCur(o.rp)} · ${daysSinceLastAction(o.organizer)}d since touch</div><button class="qq-btn" onclick="event.stopPropagation();quickTouchAction('${o.organizer.replace(/'/g,"\\'")}','email',this)">📧</button><button class="qq-btn" onclick="event.stopPropagation();quickTouchAction('${o.organizer.replace(/'/g,"\\'")}','meeting',this)">🤝</button><button class="qq-btn" onclick="event.stopPropagation();actBtnClick(this,'${o.organizer.replace(/'/g,"\\'")}')">✅</button></div>`).join('');
+  el.innerHTML=queue.map(o=>`<div class="qq-row"><div class="qq-org" title="${o.organizer}">${o.organizer}</div><div class="qq-meta">${o.country} · ${o.sales_manager?('👤 '+o.sales_manager+' · '):''}PS ${o.ps} · ${fmtCur(o.rp)} · ${daysSinceLastAction(o.organizer)}d since touch</div><button class="qq-btn" onclick="event.stopPropagation();quickTouchAction('${o.organizer.replace(/'/g,"\\'")}','email',this)">📧</button><button class="qq-btn" onclick="event.stopPropagation();quickTouchAction('${o.organizer.replace(/'/g,"\\'")}','meeting',this)">🤝</button><button class="qq-btn" onclick="event.stopPropagation();actBtnClick(this,'${o.organizer.replace(/'/g,"\\'")}')">✅</button></div>`).join('');
 }
 
 function updateViewChipCounts(){
@@ -1854,9 +2052,10 @@ function updateViewChipCounts(){
   if(oppFilters.tier)base=base.filter(o=>o.tier===oppFilters.tier);
   if(oppFilters.stage)base=base.filter(o=>o.stage===oppFilters.stage);
   if(oppFilters.type)base=base.filter(o=>o.type===oppFilters.type);
+  if(oppFilters.sales_manager)base=base.filter(o=>(o.sales_manager||'')===oppFilters.sales_manager);
   if(oppFilters.search){
     const q=normStr(oppFilters.search);
-    base=base.filter(o=>normStr(o.organizer).includes(q));
+    base=base.filter(o=>normStr(o.organizer).includes(q)||normStr(o.sales_manager||'').includes(q));
   }
   if(oppFilters.tag)base=base.filter(o=>hasOrgTag(o,oppFilters.tag));
   const counts={
@@ -2264,6 +2463,7 @@ function showAssignMenu(type,id,btn){
 /* ===== ORGANISERS TAB ===== */
 function renderOrganisers(){
   const p=document.getElementById('pane-organisers');
+  const salesManagers=[...new Set(ORGS.map(o=>o.sales_manager))].filter(Boolean).sort((a,b)=>String(a).localeCompare(String(b)));
   p.innerHTML=`
   <div style="display:flex;gap:8px;margin-bottom:12px;align-items:center">
     <h3 style="flex:none;font-size:16px">📊 Organisers (${ORGS.length})</h3>
@@ -2272,6 +2472,10 @@ function renderOrganisers(){
       <button class="view-chip vc-all ${orgListView==='all'?'active':''}" onclick="orgListView='all';orgListPage=0;renderOrgTable()">All</button>
       <button class="view-chip vc-warm ${orgListView==='untapped'?'active':''}" onclick="orgListView='untapped';orgListPage=0;renderOrgTable()">Untapped (No Marketing Revenue)</button>
     </div>
+    <select style="padding:8px 12px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:13px" onchange="orgListSalesManager=this.value;orgListPage=0;renderOrgTable()">
+      <option value="">All Sales Managers</option>
+      ${salesManagers.map(s=>`<option value="${s}" ${orgListSalesManager===s?'selected':''}>${s}</option>`).join('')}
+    </select>
     <input placeholder="Search organisers..." style="padding:8px 12px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:13px;flex:1" value="${orgListSearch}" oninput="orgListSearch=this.value.toLowerCase();orgListPage=0;renderOrgTable()">
   </div>
   <div class="tbl-wrap" id="orgTbl"></div>
@@ -2284,14 +2488,15 @@ function renderOrgTable(){
   let list=ORGS;
   if(orgListView==='active_last_month')list=list.filter(o=>orgMonthMetrics(o.organizer).tick>0);
   if(orgListView==='untapped')list=list.filter(o=>(parseFloat(o.tm)||0)<=0);
-  if(orgListSearch)list=list.filter(o=>o.organizer.toLowerCase().includes(orgListSearch)||o.country.toLowerCase().includes(orgListSearch)||(o.tier||'').toLowerCase().includes(orgListSearch));
+  if(orgListSalesManager)list=list.filter(o=>(o.sales_manager||'')===orgListSalesManager);
+  if(orgListSearch)list=list.filter(o=>o.organizer.toLowerCase().includes(orgListSearch)||o.country.toLowerCase().includes(orgListSearch)||(o.tier||'').toLowerCase().includes(orgListSearch)||(o.sales_manager||'').toLowerCase().includes(orgListSearch));
   list=[...list].sort((a,b)=>{const v=orgListSort.asc?1:-1;const av=a[orgListSort.col],bv=b[orgListSort.col];if(typeof av==='string')return(av||'').localeCompare(bv||'')*v;return((av||0)-(bv||0))*v;});
   const start=orgListPage*perPage;
   const page=list.slice(start,start+perPage);
   const total=list.length;
   const totalPages=Math.ceil(total/perPage);
   const cols=[
-    {k:'organizer',l:'Organiser'},{k:'country',l:'Country'},{k:'tier',l:'Tier'},{k:'stage',l:'Stage'},{k:'type',l:'Type'},
+    {k:'organizer',l:'Organiser'},{k:'sales_manager',l:'Sales Manager'},{k:'country',l:'Country'},{k:'tier',l:'Tier'},{k:'stage',l:'Stage'},{k:'type',l:'Type'},
     {k:'ps',l:'Priority'},{k:'rp',l:'Rev Potential'},{k:'rs',l:'Risk'},{k:'sr',l:'Readiness'},
     {k:'tt',l:'Total Tick'},{k:'tm',l:'Total Mkt'},{k:'ts',l:'Share%'},
     {k:'sg',l:'Share Gap'},{k:'gt',l:'Trajectory'},{k:'lc',l:'Lifecycle'},{k:'nba',l:'NBA'},
@@ -2334,6 +2539,7 @@ function renderOrgTable(){
 /* ===== EVENTS TAB ===== */
 function renderEvents(){
   const p=document.getElementById('pane-events');
+  const salesManagers=[...new Set(EVENTS.map(e=>e.sales_manager))].filter(Boolean).sort((a,b)=>String(a).localeCompare(String(b)));
   p.innerHTML=`
   <div style="display:flex;gap:8px;margin-bottom:12px;align-items:center">
     <h3 style="flex:none;font-size:16px">🎫 Events (${EVENTS.length})</h3>
@@ -2346,6 +2552,10 @@ function renderEvents(){
       <input type="checkbox" ${evtHidePast?'checked':''} onchange="evtHidePast=this.checked;evtListPage=0;renderEvtTable()">
       Hide passed dates
     </label>
+    <select style="padding:8px 12px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:13px" onchange="evtListSalesManager=this.value;evtListPage=0;renderEvtTable()">
+      <option value="">All Sales Managers</option>
+      ${salesManagers.map(s=>`<option value="${s}" ${evtListSalesManager===s?'selected':''}>${s}</option>`).join('')}
+    </select>
     <input placeholder="Search events..." style="padding:8px 12px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:13px;flex:1" value="${evtListSearch}" oninput="evtListSearch=this.value.toLowerCase();evtListPage=0;renderEvtTable()">
   </div>
   <div class="tbl-wrap" id="evtTbl"></div>
@@ -2359,14 +2569,15 @@ function renderEvtTable(){
   if(evtListView==='active_last_month')list=list.filter(e=>monthKeyFromRawDate(e.date)===REPORT_MONTH_KEY&&(parseFloat(e.rev)||0)>0);
   if(evtListView==='untapped')list=list.filter(e=>(parseFloat(e.mkt)||0)<=0);
   if(evtHidePast)list=list.filter(isUpcomingEvent);
-  if(evtListSearch)list=list.filter(e=>(e.name||'').toLowerCase().includes(evtListSearch)||(e.org||'').toLowerCase().includes(evtListSearch)||(e.country||'').toLowerCase().includes(evtListSearch));
+  if(evtListSalesManager)list=list.filter(e=>(e.sales_manager||'')===evtListSalesManager);
+  if(evtListSearch)list=list.filter(e=>(e.name||'').toLowerCase().includes(evtListSearch)||(e.org||'').toLowerCase().includes(evtListSearch)||(e.country||'').toLowerCase().includes(evtListSearch)||(e.sales_manager||'').toLowerCase().includes(evtListSearch));
   list=[...list].sort((a,b)=>{const v=evtListSort.asc?1:-1;const av=a[evtListSort.col],bv=b[evtListSort.col];if(typeof av==='string')return(av||'').localeCompare(bv||'')*v;return((av||0)-(bv||0))*v;});
   const start=evtListPage*perPage;
   const page=list.slice(start,start+perPage);
   const total=list.length;
   const totalPages=Math.ceil(total/perPage);
   const cols=[
-    {k:'name',l:'Event Name'},{k:'org',l:'Organiser'},{k:'country',l:'Country'},{k:'type',l:'Type'},
+    {k:'name',l:'Event Name'},{k:'org',l:'Organiser'},{k:'sales_manager',l:'Sales Manager'},{k:'country',l:'Country'},{k:'type',l:'Type'},
     {k:'id',l:'Event ID'},{k:'date',l:'Date'},{k:'year',l:'Year'},
     {k:'rev',l:'Revenue'},{k:'mkt',l:'Marketing'},{k:'share',l:'Share%'},
     {k:'_assign',l:'Assign'}
@@ -2399,7 +2610,7 @@ function renderEvtTable(){
 /* ===== EXPORT FUNCTIONS ===== */
 function exportOrgCSV(){
   sess.exports++;logAction('export','csv_organisers','organisers');
-  const cols=['organizer','country','tier','stage','type','ps','rp','rs','sr','tt','tm','ts','sg','gt','lc','nba','t25','m25','s25'];
+  const cols=['organizer','sales_manager','country','tier','stage','type','ps','rp','rs','sr','tt','tm','ts','sg','gt','lc','nba','t25','m25','s25'];
   const header=cols.join(',');
   const rows=ORGS.map(o=>cols.map(c=>{const v=o[c];return typeof v==='string'?'"'+v.replace(/"/g,'""')+'"':v??''}).join(','));
   const csv=header+'\n'+rows.join('\n');
@@ -2409,7 +2620,7 @@ function exportOrgCSV(){
 
 function exportEvtCSV(){
   sess.exports++;logAction('export','csv_events','events');
-  const cols=['name','org','country','type','id','date','year','rev','mkt','share'];
+  const cols=['name','org','sales_manager','country','type','id','date','year','rev','mkt','share'];
   const header=cols.join(',');
   const rows=EVENTS.map(e=>cols.map(c=>{const v=e[c];return typeof v==='string'?'"'+v.replace(/"/g,'""')+'"':v??''}).join(','));
   const csv=header+'\n'+rows.join('\n');
@@ -2481,6 +2692,7 @@ function saveFiltersToURL(){
   if(oppFilters.tier)params.set('tier',oppFilters.tier);
   if(oppFilters.stage)params.set('stage',oppFilters.stage);
   if(oppFilters.type)params.set('type',oppFilters.type);
+  if(oppFilters.sales_manager)params.set('sm',oppFilters.sales_manager);
   if(oppFilters.search)params.set('q',oppFilters.search);
   if(oppFilters.tag)params.set('tag',oppFilters.tag);
   const qs=params.toString();
@@ -2494,6 +2706,7 @@ function restoreFilters(){
   if(params.has('tier'))oppFilters.tier=params.get('tier');
   if(params.has('stage'))oppFilters.stage=params.get('stage');
   if(params.has('type'))oppFilters.type=params.get('type');
+  if(params.has('sm'))oppFilters.sales_manager=params.get('sm');
   if(params.has('q'))oppFilters.search=params.get('q');
   if(params.has('tag'))oppFilters.tag=params.get('tag');
   if(oppView==='all'&&!oppFilters.country){
