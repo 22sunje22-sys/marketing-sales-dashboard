@@ -486,7 +486,7 @@ tr:hover td { background:var(--surface2); }
   <div class="pl-logo">📊 Platinumlist Sales Dashboard</div>
   <div class="pl-bar-wrap"><div class="pl-bar" id="plBar"></div></div>
   <div class="pl-joke" id="plJoke"></div>
-  <div class="pl-status" id="plStatus">Loading data...</div>
+  <div class="pl-status" id="plStatus">0%</div>
 </div>
 
 
@@ -587,33 +587,33 @@ let SCOPED_RAW_EVENTS=[];
 let EVENT_REL_BY_ID={};
 let SALES_MANAGERS=[];
 let dataLoaded=false;
-function _setBar(pct, text){
+function _setBar(pct){
   const bar=document.getElementById('plBar');
   const st=document.getElementById('plStatus');
   if(bar) bar.style.width=pct+'%';
-  if(st&&text) st.textContent=text;
+  if(st) st.textContent=Math.round(pct)+'%';
 }
 
 async function loadData(){
   const base=window.location.origin;
   try{
-    _setBar(5,'Connecting to Supabase…');
+    _setBar(5);
 
     const [orgsRes,eventsRes,relRes]=await Promise.all([
-      fetch(base+'/api/orgs').then(r=>{ _setBar(35,'Organisers loaded…'); return r; }),
-      fetch(base+'/api/events').then(r=>{ _setBar(70,'Events loaded…'); return r; }),
-      fetch(base+'/api/event-relations').then(r=>{ _setBar(80,'Relations loaded…'); return r; })
+      fetch(base+'/api/orgs').then(r=>{ _setBar(35); return r; }),
+      fetch(base+'/api/events').then(r=>{ _setBar(70); return r; }),
+      fetch(base+'/api/event-relations').then(r=>{ _setBar(82); return r; })
     ]);
 
     if(!orgsRes.ok||!eventsRes.ok)throw new Error('API error');
 
-    _setBar(85,'Processing data…');
+    _setBar(88);
     RAW_ORGS=await orgsRes.json();
     RAW_EVENTS=await eventsRes.json();
     RAW_EVENT_REL=relRes.ok?await relRes.json():[];
-    _setBar(95,'Attaching sales managers…');
+    _setBar(96);
     attachSalesManagers();
-    _setBar(100,'Ready!');
+    _setBar(100);
     dataLoaded=true;
   }catch(e){
     console.error('Failed to load data:',e);
