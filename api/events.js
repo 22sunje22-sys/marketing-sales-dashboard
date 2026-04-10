@@ -46,12 +46,29 @@ export default async function handler(req, res) {
       })));
     }
 
-    // Full load: single RPC call — bypasses REST row limit, returns full materialized view (~30k rows)
-    const { data: allRows, error: rpcError } = await supabase.rpc('get_events_monthly');
-    if (rpcError) {
-      console.error('Events RPC error:', rpcError.message);
-      return res.status(500).json({ error: rpcError.message });
-    }
+    // Full load: parallel pagination over materialized view (~30k rows, ~31 pages)
+    const pageSize = 1000;
+    const { count, error: countErr } = await supabase
+      .from('dashboard_events_monthly')
+      .select('*', { count: 'exact', head: true });
+    if (countErr) return res.status(500).json({ error: countErr.message });
+
+    const pages = Math.ceil((count || 30000) / pageSize);
+    const results = await Promise.all(
+      Array.from({ length: pages }, (_, i) =>
+        supabase
+          .from('dashboard_events_monthly')
+          .select('id,org,name,country,type,event_id,date,year,rev,mkt,share')
+          .order('year', { ascending: true })
+          .order('date', { ascending: true })
+          .order('event_id', { ascending: true })
+          .range(i * pageSize, (i + 1) * pageSize - 1)
+      )
+    );
+
+    const firstErr = results.find(r => r.error);
+    if (firstErr) return res.status(500).json({ error: firstErr.error.message });
+    const allRows = results.flatMap(r => r.data || []);
 
     return res.status(200).json(allRows.map(row => ({
       org: row.org, name: row.name, country: row.country, type: row.type,
