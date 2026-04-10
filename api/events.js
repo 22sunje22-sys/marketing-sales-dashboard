@@ -49,7 +49,7 @@ export default async function handler(req, res) {
     }
 
     // Full load: cursor-based pagination to fetch all events
-    const pageSize = 3000;
+    const pageSize = 1000;
     const maxPages = 20;
     let allRows = [];
     let lastId = 0;

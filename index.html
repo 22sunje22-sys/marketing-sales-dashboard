@@ -1519,7 +1519,7 @@ function renderOverview(){
   if(OVERVIEW_COUNTRY_FILTER&&!allowedCountries.includes(OVERVIEW_COUNTRY_FILTER))OVERVIEW_COUNTRY_FILTER='';
   const scopeCountries=OVERVIEW_COUNTRY_FILTER?[OVERVIEW_COUNTRY_FILTER]:allowedCountries;
   const countrySet=new Set(scopeCountries);
-  const dataMaxKey=maxDataMonthKey(RAW_EVENTS,true);
+  const dataMaxKey=maxDataMonthKey(RAW_EVENTS,false);
   const monthlyByCountry=buildCountryMonthlyBase(RAW_EVENTS,countrySet,dataMaxKey);
   const allMonthKeys=[...new Set(Object.keys(monthlyByCountry).map(k=>k.split('||')[1]))].sort();
   const lastClosedMonthKey=shiftMonthKey(currentMonthKey(),-1)||currentMonthKey();
