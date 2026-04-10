@@ -29,20 +29,36 @@ body { font-family:'Inter',sans-serif; background:var(--bg); color:var(--text); 
 
 /* LOGIN */
 .login-wrap { display:flex; align-items:center; justify-content:center; min-height:100vh; padding:20px; }
-.login-box { background:var(--surface); border-radius:16px; padding:40px; width:100%; max-width:380px; text-align:center; }
+.login-box { background:var(--surface); border-radius:16px; padding:40px 32px; width:100%; max-width:420px; text-align:center; }
 .login-box h1 { font-size:22px; margin-bottom:6px; }
 .login-box p { color:var(--text2); font-size:13px; margin-bottom:24px; }
-.login-box select, .login-box input { width:100%; padding:12px 16px; border-radius:8px; border:1px solid var(--border); background:var(--surface2); color:var(--text); font-size:14px; margin-bottom:12px; outline:none; }
-.login-box button { width:100%; padding:12px; border-radius:8px; border:none; background:var(--pl-suede); color:#fff; font-size:15px; font-weight:600; cursor:pointer; transition:background 0.2s; }
-.login-box button:hover { background:var(--pl-monday); color:var(--pl-storm); }
-.login-err { color:var(--red); font-size:13px; margin-top:8px; display:none; }
-.btn-slack { background:linear-gradient(135deg,#5b2e86,#7b2b89) !important; color:#fff !important; font-weight:700; }
-.btn-slack:hover { filter:brightness(1.08); color:#fff !important; }
-.login-link { display:block; margin-top:10px; color:var(--pl-monday); font-size:13px; cursor:pointer; text-decoration:none; }
-.login-link:hover { text-decoration:underline; }
-.login-muted { color:var(--text2); font-size:12px; margin-top:10px; line-height:1.45; }
-.auth-guide { margin-top:14px; border:1px solid var(--border); border-radius:10px; background:var(--surface2); padding:10px; text-align:left; }
-.auth-guide h4 { font-size:12px; color:var(--text2); margin-bottom:8px; font-weight:600; }
+.login-box select { width:100%; padding:12px 16px; border-radius:8px; border:1px solid var(--border); background:var(--surface2); color:var(--text); font-size:14px; margin-bottom:16px; outline:none; }
+.login-err { font-size:13px; margin-top:10px; display:none; padding:8px 12px; border-radius:8px; background:rgba(198,40,40,.15); color:#ef9a9a; }
+.method-choice { display:flex; gap:10px; margin-bottom:20px; }
+.method-btn { flex:1; padding:14px 10px; border:1px solid var(--border); border-radius:10px; background:var(--surface2); color:var(--text2); font-size:14px; font-weight:600; cursor:pointer; transition:all .2s; }
+.method-btn:hover { border-color:var(--text2); color:var(--text); }
+.method-btn.active { border-color:var(--pl-monday); color:var(--pl-monday); background:rgba(121,226,255,0.06); }
+.method-btn .icon { font-size:1.3rem; display:block; margin-bottom:5px; }
+.auth-section { display:none; }
+.auth-section.active { display:block; }
+.auth-section input[type="email"], .auth-section input[type="text"] { width:100%; padding:12px 16px; border-radius:8px; border:1px solid var(--border); background:var(--surface2); color:var(--text); font-size:14px; margin-bottom:10px; outline:none; transition:border .2s; }
+.auth-section input:focus { border-color:var(--pl-monday); }
+.auth-section input::placeholder { color:var(--text3); }
+.send-btn { display:flex; align-items:center; justify-content:center; width:100%; padding:13px; border-radius:8px; border:none; font-size:15px; font-weight:700; cursor:pointer; transition:all .2s; }
+.send-btn:hover { transform:translateY(-1px); }
+.send-btn:disabled { opacity:0.6; cursor:not-allowed; transform:none; }
+.btn-email { background:linear-gradient(135deg,var(--pl-monday) 0%,#0099cc 100%); color:var(--pl-storm); }
+.btn-slack { background:linear-gradient(135deg,#5b2e86,#7b2b89); color:#fff; }
+.otp-section { display:none; margin-top:18px; }
+.otp-section.active { display:block; }
+.otp-section .otp-label { font-size:12px; color:var(--text2); margin-bottom:8px; }
+.otp-input { width:100%; padding:12px; border-radius:8px; border:1px solid var(--border); background:var(--surface2); color:var(--pl-monday); font-size:1.6rem; text-align:center; letter-spacing:.4em; font-family:'SF Mono','Fira Code',monospace; outline:none; transition:border .2s; }
+.otp-input:focus { border-color:var(--pl-monday); }
+.auth-msg { margin-top:10px; font-size:13px; padding:8px 12px; border-radius:8px; display:none; }
+.auth-msg.err { background:rgba(198,40,40,.15); color:#ef9a9a; }
+.auth-msg.ok { background:rgba(121,226,255,.1); color:var(--pl-monday); }
+.domain-note { font-size:11px; color:var(--text3); margin-top:6px; }
+.back-link { display:inline-block; margin-top:10px; color:var(--text2); font-size:12px; cursor:pointer; }
 .auth-guide img { width:100%; border-radius:8px; border:1px solid var(--border); display:block; }
 .hidden { display:none !important; }
 
@@ -477,7 +493,7 @@ tr:hover td { background:var(--surface2); }
 <!-- LOGIN -->
 <div class="login-wrap" id="loginWrap">
 <div class="login-box">
-<div style="margin-bottom:16px;font-size:28px;font-weight:800;letter-spacing:-0.5px;color:var(--pl-monday);">Platinumlist</div>
+<div style="margin-bottom:12px;font-size:28px;font-weight:800;letter-spacing:-0.5px;color:var(--pl-monday);">Platinumlist</div>
 <h1 style="font-size:18px;font-weight:600;">Paid Marketing Intelligence</h1>
 <p>v3.1 — for Organisers</p>
 <select id="userSel">
@@ -487,25 +503,32 @@ tr:hover td { background:var(--surface2); }
 <option value="kamila">Kamilla (UAE only)</option>
 <option value="mohammed">Mohammed (KSA/Qatar/Oman/Bahrain)</option>
 </select>
-<div id="slackAuthBox">
-  <button class="btn-slack" id="btnSlackStart" onclick="startSlackLogin()">💬 Login via Slack (Gatey)</button>
-  <div class="login-muted" id="slackHelpText">Default flow: open DM with @gatey, send <b>otp paid</b>, then paste the code here.</div>
-  <input class="hidden" id="otpInput" placeholder="Enter OTP code" onkeydown="if(event.key==='Enter')verifySlackOtp()">
-  <button class="hidden" id="btnSlackVerify" onclick="verifySlackOtp()">Verify OTP & Sign In</button>
-  <a class="login-link" onclick="toggleEmailLogin(true)">Use email instead</a>
-  <div class="auth-guide">
-    <h4>Auth guide (UX target)</h4>
-    <img src="https://b2b-marketing-dashboard.vercel.app/slack-otp-guide.jpg" alt="Slack auth UX reference">
+<div class="method-choice">
+  <button class="method-btn active" id="btnMethodEmail" onclick="switchLoginMethod('email')"><span class="icon">📧</span>Email OTP</button>
+  <button class="method-btn" id="btnMethodSlack" onclick="switchLoginMethod('slack')"><span class="icon">💬</span>Slack OTP</button>
+</div>
+<div class="auth-section active" id="sectionEmail">
+  <input type="email" id="emailInput" placeholder="you@platinumlist.net" autocomplete="email">
+  <button class="send-btn btn-email" id="btnEmailStart" onclick="startEmailLogin()">Send Code to Email</button>
+  <p class="domain-note">Only @platinumlist.net emails are allowed</p>
+  <div class="otp-section" id="emailOtpSection">
+    <p class="otp-label">Check your inbox and paste the 6-digit code</p>
+    <input type="text" class="otp-input" id="emailOtpInput" maxlength="6" inputmode="numeric" placeholder="——————" autocomplete="one-time-code">
+    <div class="auth-msg" id="emailMsg"></div>
+    <a class="back-link" onclick="resetEmailSection()">← Back</a>
   </div>
 </div>
-<div id="emailAuthBox" class="hidden">
-  <input type="email" id="emailInput" placeholder="you@platinumlist.net">
-  <button id="btnEmailStart" onclick="startEmailLogin()">Send Email OTP</button>
-  <input class="hidden" id="emailOtpInput" placeholder="Enter OTP code" onkeydown="if(event.key==='Enter')verifyEmailOtp()">
-  <button class="hidden" id="btnEmailVerify" onclick="verifyEmailOtp()">Verify OTP & Sign In</button>
-  <a class="login-link" onclick="toggleEmailLogin(false)">Back to Slack login</a>
+<div class="auth-section" id="sectionSlack">
+  <button class="send-btn btn-slack" id="btnSlackStart" onclick="startSlackLogin()">💬 Login via Slack (Gatey)</button>
+  <p class="domain-note" style="margin-top:8px">Open DM with <b>@gatey</b>, send <b>otp paid</b>, then paste the code below</p>
+  <div class="otp-section" id="slackOtpSection">
+    <p class="otp-label">Paste your 6-digit code</p>
+    <input type="text" class="otp-input" id="otpInput" maxlength="6" inputmode="numeric" placeholder="——————" autocomplete="one-time-code">
+    <div class="auth-msg" id="slackMsg"></div>
+    <a class="back-link" onclick="resetSlackSection()">← Back</a>
+  </div>
 </div>
-<div class="login-err" id="loginErr">Invalid password</div>
+<div class="login-err" id="loginErr"></div>
 </div>
 </div>
 
@@ -866,8 +889,7 @@ function buildMonthlyCache(){
   const prevCalendarMonth=shiftMonthKey(currentMonthKey(),-1)||currentMonthKey();
   let latestPaidMonth='';
   let latestTicketMonth='';
-  EVENTS.forEach(e=>{
-    if((e.type||'').toLowerCase()!=='event')return;
+  RAW_EVENTS.forEach(e=>{
     const mk=monthKeyFromRawDate(e.date);
     if(!mk||mk>prevCalendarMonth)return;
     if(!isValidRevenuePoint(e.rev,e.mkt))return;
