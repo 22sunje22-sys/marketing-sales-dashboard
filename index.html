@@ -1038,13 +1038,11 @@ function setLoginError(msg){
   errEl.style.display=msg?'block':'none';
 }
 function toggleEmailLogin(showEmail){
-  const pwd=document.getElementById('passwordAuthBox');
   const slack=document.getElementById('slackAuthBox');
   const email=document.getElementById('emailAuthBox');
-  if(!pwd||!slack||!email)return;
+  if(!slack||!email)return;
   email.classList.toggle('hidden',!showEmail);
   slack.classList.toggle('hidden',!!showEmail);
-  pwd.classList.add('hidden');
   setLoginError('');
 }
 async function startSlackLogin(){
