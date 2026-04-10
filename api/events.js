@@ -5,7 +5,6 @@ const supabase = createClient(
   'https://kwftlkfvtglnugxsyjci.supabase.co',
   process.env.SUPABASE_SERVICE_KEY || ANON_KEY
 );
-const DASHBOARD_COUNTRIES = ['United Arab Emirates', 'Saudi Arabia', 'Bahrain', 'Oman', 'Qatar', 'Kuwait', '#N/A'];
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -58,7 +57,6 @@ export default async function handler(req, res) {
       let query = supabase
         .from('dashboard_events')
         .select('id,org,name,country,type,event_id,date,year,rev,mkt,share')
-        .in('country', DASHBOARD_COUNTRIES)
         .order('id', { ascending: true })
         .limit(pageSize);
 

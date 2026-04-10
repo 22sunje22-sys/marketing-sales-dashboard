@@ -587,22 +587,33 @@ let SCOPED_RAW_EVENTS=[];
 let EVENT_REL_BY_ID={};
 let SALES_MANAGERS=[];
 let dataLoaded=false;
+function _setBar(pct, text){
+  const bar=document.getElementById('plBar');
+  const st=document.getElementById('plStatus');
+  if(bar) bar.style.width=pct+'%';
+  if(st&&text) st.textContent=text;
+}
+
 async function loadData(){
   const base=window.location.origin;
   try{
-    const statusEl=document.getElementById('plStatus');
-    if(statusEl)statusEl.textContent='Loading organisers & events from Supabase…';
+    _setBar(5,'Connecting to Supabase…');
+
     const [orgsRes,eventsRes,relRes]=await Promise.all([
-      fetch(base+'/api/orgs'),
-      fetch(base+'/api/events'),
-      fetch(base+'/api/event-relations')
+      fetch(base+'/api/orgs').then(r=>{ _setBar(35,'Organisers loaded…'); return r; }),
+      fetch(base+'/api/events').then(r=>{ _setBar(70,'Events loaded…'); return r; }),
+      fetch(base+'/api/event-relations').then(r=>{ _setBar(80,'Relations loaded…'); return r; })
     ]);
-    if(statusEl)statusEl.textContent='Processing '+((await orgsRes.clone().json()).length||'…')+' organisers…';
+
     if(!orgsRes.ok||!eventsRes.ok)throw new Error('API error');
+
+    _setBar(85,'Processing data…');
     RAW_ORGS=await orgsRes.json();
     RAW_EVENTS=await eventsRes.json();
     RAW_EVENT_REL=relRes.ok?await relRes.json():[];
+    _setBar(95,'Attaching sales managers…');
     attachSalesManagers();
+    _setBar(100,'Ready!');
     dataLoaded=true;
   }catch(e){
     console.error('Failed to load data:',e);
@@ -1013,26 +1024,21 @@ const PL_JOKES = [
   "Almost there! Just deduplicating the duplicate deduplication.",
 ];
 let _plJokeTimer = null;
-let _plBarVal = 0;
-let _plBarTimer = null;
 
 function showPreloader(){
   const el = document.getElementById('preloader');
   if(!el) return;
   el.classList.add('active');
-  _plBarVal = 0;
   document.getElementById('plBar').style.width = '0%';
   _showNextJoke();
-  _animateBar();
 }
 
 function hidePreloader(){
   const el = document.getElementById('preloader');
   if(!el) return;
   document.getElementById('plBar').style.width = '100%';
-  setTimeout(()=>{ el.classList.remove('active'); }, 400);
+  setTimeout(()=>{ el.classList.remove('active'); }, 600);
   if(_plJokeTimer){ clearTimeout(_plJokeTimer); _plJokeTimer=null; }
-  if(_plBarTimer){ clearTimeout(_plBarTimer); _plBarTimer=null; }
 }
 
 function _showNextJoke(){
@@ -1042,15 +1048,6 @@ function _showNextJoke(){
   el.style.opacity = '0';
   setTimeout(()=>{ el.textContent = joke; el.style.opacity = '1'; }, 300);
   _plJokeTimer = setTimeout(_showNextJoke, 3200);
-}
-
-function _animateBar(){
-  // Animate bar from 0 to ~85% over ~8s, then stall waiting for data
-  if(_plBarVal < 85){
-    _plBarVal += (85 - _plBarVal) * 0.04 + 0.3;
-    document.getElementById('plBar').style.width = Math.min(_plBarVal, 85) + '%';
-    _plBarTimer = setTimeout(_animateBar, 120);
-  }
 }
 /* ===== END PRELOADER ===== */
 function setLoginError(msg){
