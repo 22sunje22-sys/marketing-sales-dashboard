@@ -1562,8 +1562,9 @@ function renderOverview(){
     <div class="chart-box"><h3>Marketing Share by Country (${monthLabel(reportMonthKey)} vs ${monthLabel(reportCmpKey)})</h3><canvas id="chCountryShareYoY"></canvas></div>
   </div>`;
 
-  const eventsCur=(RAW_EVENTS||[]).filter(e=>scopeCountries.includes(e.country)&&monthKeyFromRawDate(e.date)===reportMonthKey&&(e.type||'').toLowerCase()==='event');
-  const eventsLy=(RAW_EVENTS||[]).filter(e=>scopeCountries.includes(e.country)&&monthKeyFromRawDate(e.date)===reportCmpKey&&(e.type||'').toLowerCase()==='event');
+  const isEvent=e=>{const t=(e.type||'').toLowerCase();return t===''||t==='event';};
+  const eventsCur=(RAW_EVENTS||[]).filter(e=>scopeCountries.includes(e.country)&&monthKeyFromRawDate(e.date)===reportMonthKey&&isEvent(e));
+  const eventsLy=(RAW_EVENTS||[]).filter(e=>scopeCountries.includes(e.country)&&monthKeyFromRawDate(e.date)===reportCmpKey&&isEvent(e));
   const ticketCur=eventsCur.reduce((s,e)=>s+convertByCountry(parseFloat(e.rev)||0,e.country,overviewCurrency),0);
   const ticketLy=eventsLy.reduce((s,e)=>s+convertByCountry(parseFloat(e.rev)||0,e.country,overviewCurrency),0);
   const mktCur=cmRows.reduce((s,r)=>s+(r.mktCur||0),0);
