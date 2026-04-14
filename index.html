@@ -802,10 +802,11 @@ function isUpcomingEvent(e){
   const today=new Date();today.setHours(0,0,0,0);
   return d>=today;
 }
+function isEvent(e){const t=(e.type||'').toLowerCase();return t===''||t==='event';}
 function maxDataMonthKey(rows,onlyEvents=false){
   let mx=null;
   (rows||[]).forEach(e=>{
-    if(onlyEvents&&(e.type||'').toLowerCase()!=='event')return;
+    if(onlyEvents&&!isEvent(e))return;
     const mk=monthKeyFromRawDate(e.date);
     if(!mk)return;
     if(!isValidRevenuePoint(e.rev,e.mkt))return;
@@ -838,7 +839,7 @@ function buildCountryMonthlyBase(events,countrySet=null,maxKey=null){
     if(!monthly[k])monthly[k]={rev:0,mktAll:0,mktEvent:0};
     const mkt=(parseFloat(e.mkt)||0);
     monthly[k].mktAll+=mkt;
-    if((e.type||'').toLowerCase()!=='event')return;
+    if(!isEvent(e))return;
     monthly[k].rev+=(parseFloat(e.rev)||0);
     monthly[k].mktEvent+=mkt;
   });
@@ -887,7 +888,7 @@ function buildCountrySourceQa(events){
 function buildMonthlyCache(){
   ORG_MONTHLY={};
   EVENTS.forEach(e=>{
-    if((e.type||'').toLowerCase()!=='event')return;
+    if(!isEvent(e))return;
     const mk=monthKeyFromRawDate(e.date);
     if(!mk)return;
     if(!isValidRevenuePoint(e.rev,e.mkt))return;
@@ -1562,7 +1563,6 @@ function renderOverview(){
     <div class="chart-box"><h3>Marketing Share by Country (${monthLabel(reportMonthKey)} vs ${monthLabel(reportCmpKey)})</h3><canvas id="chCountryShareYoY"></canvas></div>
   </div>`;
 
-  const isEvent=e=>{const t=(e.type||'').toLowerCase();return t===''||t==='event';};
   const eventsCur=(RAW_EVENTS||[]).filter(e=>scopeCountries.includes(e.country)&&monthKeyFromRawDate(e.date)===reportMonthKey&&isEvent(e));
   const eventsLy=(RAW_EVENTS||[]).filter(e=>scopeCountries.includes(e.country)&&monthKeyFromRawDate(e.date)===reportCmpKey&&isEvent(e));
   const ticketCur=eventsCur.reduce((s,e)=>s+convertByCountry(parseFloat(e.rev)||0,e.country,overviewCurrency),0);
