@@ -2991,9 +2991,9 @@ function renderCountriesRaw(){
   p.innerHTML=`
     <div style="padding:20px">
       <h3 style="margin-bottom:4px">🌍 Countries RAW — Monthly Performance</h3>
-      <p style="color:var(--text3);font-size:12px;margin-bottom:16px">Live data from Supabase dashboard_events • ${eventsToUse.length.toLocaleString()} events loaded</p>
+      <p style="color:var(--text3);font-size:12px;margin-bottom:16px">Live data from Supabase pm_events • ${eventsToUse.length.toLocaleString()} events loaded</p>
       ${COUNTRY_SOURCE_QA&&COUNTRY_SOURCE_QA.mismatch>0?`<div style="margin:-6px 0 14px;padding:10px 12px;border:1px solid rgba(245,158,11,0.45);background:rgba(245,158,11,0.08);border-radius:8px;color:#FCD34D;font-size:12px">
-        Source QA: dashboard_events monthly sums diverge from file baseline in ${COUNTRY_SOURCE_QA.mismatch}/${COUNTRY_SOURCE_QA.checked} country-month points.
+        Source QA: pm_events monthly sums diverge from file baseline in ${COUNTRY_SOURCE_QA.mismatch}/${COUNTRY_SOURCE_QA.checked} country-month points.
         Max diff: ticketing ${fmtCur(COUNTRY_SOURCE_QA.maxTickDiff)} • marketing ${fmtCur(COUNTRY_SOURCE_QA.maxMktDiff)}.
       </div>`:''}
       <div style="display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap;align-items:center">

@@ -24,15 +24,19 @@ export default async function handler(req, res) {
 
   try {
     let allRows = [];
-    let from = 0;
+    let lastId = 0;
     const pageSize = 1000;
+    const maxPages = 200;
 
-    while (true) {
-      const { data, error } = await supabase
+    for (let i = 0; i < maxPages; i += 1) {
+      let query = supabase
         .from('dashboard_organisers')
-        .select('organizer,country,tier,stage,type,event_ex,t23,t24,t25,t26,m23,m24,m25,m26,s23,s24,s25,s26,tt,tm,ts,tyoy24,myoy24,tyoy25,myoy25,tags,sg,sgp,rp,gt,rs,ps,sr,nba,lc')
+        .select('id,organizer,country,tier,stage,type,event_ex,t23,t24,t25,t26,m23,m24,m25,m26,s23,s24,s25,s26,tt,tm,ts,tyoy24,myoy24,tyoy25,myoy25,tags,sg,sgp,rp,gt,rs,ps,sr,nba,lc')
         .order('id', { ascending: true })
-        .range(from, from + pageSize - 1);
+        .limit(pageSize);
+
+      if (lastId > 0) query = query.gt('id', lastId);
+      const { data, error } = await query;
 
       if (error) {
         console.error('Supabase error:', error);
@@ -41,10 +45,12 @@ export default async function handler(req, res) {
       if (!data || data.length === 0) break;
       allRows = allRows.concat(data);
       if (data.length < pageSize) break;
-      from += pageSize;
+      const nextLastId = Number(data[data.length - 1]?.id || 0);
+      if (!Number.isFinite(nextLastId) || nextLastId <= lastId) break;
+      lastId = nextLastId;
     }
 
-    return res.status(200).json(allRows);
+    return res.status(200).json(allRows.map(({ id, ...rest }) => rest));
   } catch (err) {
     console.error('Server error:', err);
     return res.status(500).json({ error: 'Internal server error' });

@@ -273,7 +273,7 @@ async function main() {
 
   const eventRows = buildEventRows(evRowsRaw);
   const expectedCountry = parseCountriesRawTargets(crRowsRaw);
-  console.log('Prepared dashboard_events rows:', eventRows.length);
+  console.log('Prepared pm_events rows:', eventRows.length);
 
   const oldOrgs = await fetchAll('dashboard_organisers', 'organizer,tags,sg,sgp,rp,gt,rs,ps,sr,nba,lc');
   const oldByOrg = new Map(oldOrgs.map((o) => [lcKey(o.organizer), o]));
@@ -281,12 +281,12 @@ async function main() {
   const organiserRows = buildOrganiserRows(orgRowsRaw, oldByOrg);
   console.log('Prepared dashboard_organisers rows:', organiserRows.length);
 
-  console.log('Deleting old dashboard_events...');
+  console.log('Deleting old pm_events...');
   {
-    const { error } = await sb.from('dashboard_events').delete().gt('id', 0);
+    const { error } = await sb.from('pm_events').delete().gt('id', 0);
     if (error) throw error;
   }
-  await chunkInsert('dashboard_events', eventRows, 500);
+  await chunkInsert('pm_events', eventRows, 500);
 
   console.log('Deleting old dashboard_organisers...');
   {
@@ -296,7 +296,7 @@ async function main() {
   await chunkInsert('dashboard_organisers', organiserRows, 500);
 
   console.log('Running validation...');
-  const dbEvents = await fetchAll('dashboard_events', 'country,type,date,rev,mkt');
+  const dbEvents = await fetchAll('pm_events', 'country,type,date,rev,mkt');
   const dbOrgs = await fetchAll('dashboard_organisers', 'organizer,t23,m23,t24,m24,t25,m25,t26,m26,tt,tm,ts');
 
   const gotCountry = aggregateCountryMonth(dbEvents);
@@ -350,7 +350,7 @@ async function main() {
 
   console.log('\n=== RESULT ===');
   console.log(JSON.stringify({
-    dashboard_events_rows: dbEvents.length,
+    pm_events_rows: dbEvents.length,
     dashboard_organisers_rows: dbOrgs.length,
     country_month_checked: cmChecked,
     country_month_mismatch: cmMismatch,
