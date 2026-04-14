@@ -26,7 +26,7 @@ export default async function handler(req, res) {
         : 2000;
       const pattern = `%${orgParam.replace(/[-\s]+/g, '%')}%`;
       const { data, error } = await supabase
-        .from('pm_events')
+        .from('dashboard_events')
         .select('id,org,name,country,type,event_id,date,year,rev,mkt,share')
         .ilike('org', pattern)
         .order('date', { ascending: false })
@@ -49,7 +49,7 @@ export default async function handler(req, res) {
     // Full load: parallel pagination over materialized view (~30k rows, ~31 pages)
     const pageSize = 1000;
     const { count, error: countErr } = await supabase
-      .from('pm_events_monthly')
+      .from('dashboard_events_monthly')
       .select('*', { count: 'exact', head: true });
     if (countErr) return res.status(500).json({ error: countErr.message });
 
@@ -57,7 +57,7 @@ export default async function handler(req, res) {
     const results = await Promise.all(
       Array.from({ length: pages }, (_, i) =>
         supabase
-          .from('pm_events_monthly')
+          .from('dashboard_events_monthly')
           .select('id,org,name,country,type,event_id,date,year,rev,mkt,share')
           .order('year', { ascending: true })
           .order('date', { ascending: true })
